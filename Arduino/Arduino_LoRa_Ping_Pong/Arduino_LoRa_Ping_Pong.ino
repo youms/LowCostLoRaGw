@@ -269,10 +269,10 @@ void loop(void)
       PRINT_CSTSTR("%s","Sending Ping");  
       PRINTLN;
             
-      e = sx1272.sendPacketTimeoutACK(DEFAULT_DEST_ADDR, message, r_size);
+      //e = sx1272.sendPacketTimeoutACK(DEFAULT_DEST_ADDR, message, r_size);
 
       // this is the no-ack version
-      //e = sx1272.sendPacketTimeout(DEFAULT_DEST_ADDR, message, r_size);
+      e = sx1272.sendPacketTimeout(DEFAULT_DEST_ADDR, message, r_size);
             
       PRINT_CSTSTR("%s","Packet sent, state ");
       PRINT_VALUE("%d", e);

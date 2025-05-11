@@ -1,0 +1,20 @@
+function Decoder(bytes, port) {
+  // Initialize our response object
+  var decoded = {};
+  
+  if (port === 1 && bytes.length === 2) {
+    // Reconstruct the 2-byte integer from highByte and lowByte
+    var rawValue = (bytes[0] << 8) + bytes[1];
+    
+    // Store the raw sensor value
+    decoded.raw_value = rawValue;
+    
+    // Calculate percentage (assuming 0-1023 ADC range)
+    decoded.percentage = (rawValue / 1023) * 100;
+    
+    // You could add gas concentration calculations here if you have calibration data
+    // Example: decoded.ppm = calculatePPM(rawValue);
+  }
+  
+  return decoded;
+}

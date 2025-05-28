@@ -126,17 +126,17 @@ static const uint8_t u8x8_d_il3820_296x128_powersave1_seq[] = {
   U8X8_END()             			/* end of sequence */
 };
 
-static const uint8_t u8x8_d_il3820_296x128_flip0_seq[] = {
-  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-  U8X8_END_TRANSFER(),             	/* disable chip */
-  U8X8_END()             			/* end of sequence */
-};
+// static const uint8_t u8x8_d_il3820_296x128_flip0_seq[] = {
+//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+//   U8X8_END_TRANSFER(),             	/* disable chip */
+//   U8X8_END()             			/* end of sequence */
+// };
 
-static const uint8_t u8x8_d_il3820_296x128_flip1_seq[] = {
-  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-  U8X8_END_TRANSFER(),             	/* disable chip */
-  U8X8_END()             			/* end of sequence */
-};
+// static const uint8_t u8x8_d_il3820_296x128_flip1_seq[] = {
+//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+//   U8X8_END_TRANSFER(),             	/* disable chip */
+//   U8X8_END()             			/* end of sequence */
+// };
 
 
 static const u8x8_display_info_t u8x8_il3820_296x128_display_info =
@@ -156,7 +156,7 @@ static const u8x8_display_info_t u8x8_il3820_296x128_display_info =
   /* data_setup_time_ns = */ 40,
   /* write_pulse_width_ns = */ 150,	
   /* tile_width = */ 37,		/* 37*8 = 296 */
-  /* tile_hight = */ 16,		/* 16*8 = 128 */	
+  /* tile_height = */ 16,		/* 16*8 = 128 */	
   /* default_x_offset = */ 0,
   /* flipmode_x_offset = */ 0,
   /* pixel_width = */ 296,
@@ -295,8 +295,8 @@ static const uint8_t u8x8_d_il3820_296x128_init_seq[] = {
 
   U8X8_CA(0x11, 0x07),	/* Define data entry mode, x&y inc, x first*/
 
-  U8X8_CAA(0x44, 0, 29),	/* RAM x start & end, 32*4=128 */
-  U8X8_CAAAA(0x45, 0, 0, 295&255, 295>>8),	/* RAM y start & end, 0..295 */
+  U8X8_CAA(0x44, 0, 29),	/* RAM x start & end, issue 920: end should be (128/8)-1=15. */
+  U8X8_CAAAA(0x45, 0, 0, 295&255, 295>>8),	/* RAM y start & end */
   
   //U8X8_CA(0x4e, 0),	/* set x pos, 0..29? */
   //U8X8_CAA(0x4f, 0, 0),	/* set y pos, 0...320??? */

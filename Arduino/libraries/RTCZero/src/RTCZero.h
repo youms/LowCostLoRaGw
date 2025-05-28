@@ -95,11 +95,17 @@ public:
   uint32_t getY2kEpoch();
   void setEpoch(uint32_t ts);
   void setY2kEpoch(uint32_t ts);
+  void setAlarmEpoch(uint32_t ts);
+
+  bool isConfigured() {
+    return _configured;
+  }
 
 private:
   bool _configured;
 
   void config32kOSC(void);
+  void configureClock(void);
   void RTCreadRequest();
   bool RTCisSyncing(void);
   void RTCdisable();

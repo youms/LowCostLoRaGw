@@ -70,6 +70,7 @@ struct u8x8_sbn1661_vars
   uint8_t arg_int;
 };
 
+#ifdef NOT_USED
 static void u8x8_sbn1661_out(u8x8_t *u8x8, struct u8x8_sbn1661_vars *v, void *arg_ptr)
 {
   uint8_t cnt;
@@ -107,6 +108,7 @@ static void u8x8_sbn1661_out(u8x8_t *u8x8, struct u8x8_sbn1661_vars *v, void *ar
 	break;       
   } 
 }
+#endif /* NOT_USED */
 
 
 static const u8x8_display_info_t u8x8_sbn1661_122x32_display_info =
@@ -126,7 +128,7 @@ static const u8x8_display_info_t u8x8_sbn1661_122x32_display_info =
   /* data_setup_time_ns = */ 200,
   /* write_pulse_width_ns = */ 200,	/*  */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 4,
+  /* tile_height = */ 4,
   /* default_x_offset = */ 0,
   /* flipmode_x_offset = */ 0,
   /* pixel_width = */ 122,

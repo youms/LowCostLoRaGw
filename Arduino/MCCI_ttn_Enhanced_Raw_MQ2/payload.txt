@@ -1,0 +1,190 @@
+// TTN Decoder for Raw-Only MQ2 Payload (6 bytes)
+// Calculates ALL gas concentrations on TTN side
+
+function decodeUplink(input) {
+  var bytes = input.bytes;
+  var port = input.fPort;
+  
+  // Check payload size
+  if (bytes.length !== 6) {
+    return {
+      data: { error: "Expected 6 bytes for raw MQ2 data" },
+      warnings: ["Invalid payload length"],
+      errors: ["Payload structure error"]
+    };
+  }
+  
+  // Decode raw values
+  var raw_adc = (bytes[0] << 8) | bytes[1];
+  var sensor_resistance = ((bytes[2] << 8) | bytes[3]) * 10; // Unscale Rs
+  var rs_r0_ratio = ((bytes[4] << 8) | bytes[5]) / 1000.0;   // Unscale ratio
+  
+  // Calculate voltage
+  var voltage = raw_adc * (5.0 / 1023.0);
+  
+  // Calculate ALL gas concentrations using formulas
+  var gas_concentrations = {};
+  
+  if (rs_r0_ratio > 0) {
+    gas_concentrations.lpg_ppm = Math.round(987.26 * Math.pow(rs_r0_ratio, -2.162));
+    gas_concentrations.methane_ppm = Math.round(2217.8 * Math.pow(rs_r0_ratio, -2.827));
+    gas_concentrations.hydrogen_ppm = Math.round(988.05 * Math.pow(rs_r0_ratio, -1.767));
+    gas_concentrations.co_ppm = Math.round(605.18 * Math.pow(rs_r0_ratio, -3.937));
+    gas_concentrations.alcohol_ppm = Math.round(75.906 * Math.pow(rs_r0_ratio, -1.691));
+    gas_concentrations.propane_ppm = Math.round(614.56 * Math.pow(rs_r0_ratio, -2.564));
+    gas_concentrations.smoke_ppm = Math.round(143.01 * Math.pow(rs_r0_ratio, -2.186));
+  } else {
+    // Zero concentrations if invalid ratio
+    gas_concentrations = {
+      lpg_ppm: 0, methane_ppm: 0, hydrogen_ppm: 0,
+      co_ppm: 0, alcohol_ppm: 0, propane_ppm: 0, smoke_ppm: 0
+    };
+  }
+  
+  // Safety assessment (same logic as before)
+  var safety_level = "SAFE";
+  var alerts = [];
+  var warnings = [];
+  var errors = [];
+  
+  // CO safety thresholds
+  if (gas_concentrations.co_ppm > 1000) {
+    safety_level = "DANGER";
+    alerts.push("CO_CRITICAL");
+    errors.push("Immediate evacuation required");
+  } else if (gas_concentrations.co_ppm > 200) {
+    safety_level = "WARNING";
+    alerts.push("CO_HIGH");
+    warnings.push("High CO detected");
+  } else if (gas_concentrations.co_ppm > 50) {
+    safety_level = "CAUTION";
+    alerts.push("CO_ELEVATED");
+  }
+  
+  // Combustible gas thresholds
+  var total_combustible = gas_concentrations.lpg_ppm + 
+                         gas_concentrations.methane_ppm + 
+                         gas_concentrations.propane_ppm + 
+                         gas_concentrations.hydrogen_ppm;
+  
+  if (total_combustible > 10000) {
+    safety_level = "DANGER";
+    alerts.push("EXPLOSIVE_RISK");
+    errors.push("Explosive gas concentration");
+  } else if (total_combustible > 5000) {
+    if (safety_level !== "DANGER") safety_level = "WARNING";
+    alerts.push("COMBUSTIBLE_HIGH");
+    warnings.push("High combustible gas");
+  } else if (total_combustible > 1000) {
+    if (safety_level === "SAFE") safety_level = "CAUTION";
+    alerts.push("COMBUSTIBLE_DETECTED");
+  }
+  
+  // Determine dominant gas
+  var max_concentration = 0;
+  var dominant_gas = "None";
+  
+  for (var gas in gas_concentrations) {
+    if (gas_concentrations[gas] > max_concentration && gas_concentrations[gas] > 50) {
+      max_concentration = gas_concentrations[gas];
+      dominant_gas = gas.replace('_ppm', '').toUpperCase();
+    }
+  }
+  
+  // Air quality assessment
+  var air_quality = "GOOD";
+  if (safety_level === "DANGER") air_quality = "HAZARDOUS";
+  else if (safety_level === "WARNING") air_quality = "UNHEALTHY";
+  else if (safety_level === "CAUTION") air_quality = "MODERATE";
+  
+  return {
+    data: {
+      // Raw sensor data
+      sensor: {
+        raw_adc_value: raw_adc,
+        voltage: parseFloat(voltage.toFixed(3)),
+        resistance_ohms: sensor_resistance,
+        rs_r0_ratio: parseFloat(rs_r0_ratio.toFixed(3)),
+        status: voltage < 0.5 ? "ERROR_LOW_V" : voltage > 4.5 ? "ERROR_HIGH_V" : "OK"
+      },
+      
+      // All gas concentrations calculated on TTN
+      concentrations: gas_concentrations,
+      
+      // Safety assessment
+      safety: {
+        level: safety_level,
+        air_quality: air_quality,
+        alerts: alerts,
+        dominant_gas: dominant_gas,
+        total_combustible_ppm: total_combustible
+      },
+      
+      // Environment analysis
+      environment: {
+        type: getEnvironmentType(gas_concentrations),
+        action_required: getActionRequired(safety_level),
+        ventilation_needed: (safety_level !== "SAFE")
+      },
+      
+      // Calculation metadata
+      calculation: {
+        performed_on: "TTN",
+        all_gases_calculated: true,
+        formulas_version: "v1.0",
+        calibration_status: rs_r0_ratio < 0.1 || rs_r0_ratio > 10 ? "NEEDS_CALIBRATION" : "OK"
+      },
+      
+      metadata: {
+        port: port,
+        timestamp: new Date().toISOString(),
+        payload_type: "raw_only"
+      }
+    },
+    warnings: warnings,
+    errors: errors
+  };
+  
+  // Helper functions
+  function getEnvironmentType(concentrations) {
+    if (concentrations.lpg_ppm > 500 || concentrations.propane_ppm > 500) return "Kitchen";
+    if (concentrations.methane_ppm > 500) return "Industrial";
+    if (concentrations.co_ppm > 100) return "Garage";
+    if (concentrations.alcohol_ppm > 300) return "Laboratory";
+    return "General";
+  }
+  
+  function getActionRequired(level) {
+    switch(level) {
+      case "DANGER": return "IMMEDIATE_EVACUATION";
+      case "WARNING": return "INCREASE_VENTILATION";
+      case "CAUTION": return "MONITOR_CLOSELY";
+      default: return "CONTINUE_MONITORING";
+    }
+  }
+}
+
+// Legacy TTN v2 compatibility
+function Decoder(bytes, port) {
+  return decodeUplink({ bytes: bytes, fPort: port }).data;
+}
+
+/*
+Raw-Only Payload Structure (6 bytes):
+- Byte 0-1: Raw ADC value (0-1023)
+- Byte 2-3: Sensor resistance Rs/10 (ohms)
+- Byte 4-5: Rs/R0 ratio × 1000
+
+Advantages:
+✅ Smaller payload (6 vs 10 bytes)
+✅ All calculations on TTN (flexible formulas)
+✅ Can update gas formulas without device reprogramming
+✅ Historical data can be recalculated with new formulas
+✅ Reduced Arduino processing load
+
+Disadvantages:
+❌ No immediate gas concentration feedback on device
+❌ Cannot implement local safety shutoffs
+❌ Depends on TTN connectivity for gas analysis
+❌ Higher TTN computational load
+*/

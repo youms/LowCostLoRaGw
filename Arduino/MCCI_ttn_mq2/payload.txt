@@ -1,0 +1,53 @@
+// MQ2 Gas Sensor Payload Structure
+// Total: 2 bytes
+//
+// Byte 0-1: Gas sensor ADC value (uint16_t)
+//   - Raw ADC reading from MQ2 sensor (0-1023 for 10-bit ADC)
+//   - Higher values indicate more gas detected
+//   - Example: ADC value 512 = 0x0200
+//   - Range: 0-1023 (though stored in 16-bit for future expansion)
+
+// TTN Decoder Function for MQ2 Gas Sensor
+function Decoder(bytes, port) {
+  // Check if we have the expected payload size
+  if (bytes.length !== 2) {
+    return {
+      error: "Invalid payload length. Expected 2 bytes for gas sensor."
+    };
+  }
+  
+  // Combine two bytes into 16-bit unsigned integer
+  var gas_adc = (bytes[0] << 8) | bytes[1];
+  
+  // Convert ADC value to voltage (assuming 5V reference)
+  var voltage = gas_adc * (5.0 / 1023.0);
+  
+  // Calculate gas ratio (simplified - calibration needed for accuracy)
+  var gas_ratio = voltage / 5.0;
+  
+  // Gas level categories (customize thresholds as needed)
+  var gas_level;
+  if (gas_adc < 100) {
+    gas_level = "Clean Air";
+  } else if (gas_adc < 300) {
+    gas_level = "Low Gas";
+  } else if (gas_adc < 600) {
+    gas_level = "Medium Gas";
+  } else {
+    gas_level = "High Gas";
+  }
+  
+  return {
+    gas_adc_value: gas_adc,
+    voltage: parseFloat(voltage.toFixed(3)),
+    gas_ratio: parseFloat(gas_ratio.toFixed(3)),
+    gas_level: gas_level,
+    alert: gas_adc > 300 ? "Gas detected!" : "Normal"
+  };
+}
+
+// Example payloads:
+// Clean air (ADC: 50)   → [0x00, 0x32] → 50   → 0.244V
+// Low gas   (ADC: 200)  → [0x00, 0xC8] → 200  → 0.978V  
+// Med gas   (ADC: 400)  → [0x01, 0x90] → 400  → 1.956V
+// High gas  (ADC: 800)  → [0x03, 0x20] → 800  → 3.913V

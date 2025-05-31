@@ -1,0 +1,10 @@
+function Decoder(bytes, port) {
+  var temp = ((bytes[0] << 8) | bytes[1]);
+  if (temp > 32767) temp -= 65536; // Handle negative temperatures
+  
+  return {
+    temperature: temp / 100.0,
+    gas_level: (bytes[2] << 8) | bytes[3],
+    voltage: ((bytes[2] << 8) | bytes[3]) * (5.0 / 1023.0)
+  };
+}

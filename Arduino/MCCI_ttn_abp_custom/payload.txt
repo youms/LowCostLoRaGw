@@ -1,0 +1,157 @@
+// Interactive Message Sender Payload Structure
+// Total: Variable length (1-64 bytes)
+//
+// The payload is simply the raw ASCII text that was typed in the Serial Monitor
+// Each character in the message is sent as its ASCII byte value
+// No additional encoding or compression is applied
+//
+// Examples:
+// "Hello" → [0x48, 0x65, 0x6C, 0x6C, 0x6F] (5 bytes)
+// "123"   → [0x31, 0x32, 0x33] (3 bytes)  
+// "Test!" → [0x54, 0x65, 0x73, 0x74, 0x21] (5 bytes)
+
+// TTN Decoder Function for Interactive Message Sender
+function Decoder(bytes, port) {
+  // Check if we have any payload
+  if (bytes.length === 0) {
+    return {
+      error: "Empty payload received"
+    };
+  }
+  
+  // Check payload length limits
+  if (bytes.length > 64) {
+    return {
+      error: "Payload too long. Maximum 64 characters supported."
+    };
+  }
+  
+  // Convert bytes back to string
+  var message = "";
+  var hex_string = "";
+  var printable_chars = 0;
+  var non_printable_chars = 0;
+  
+  for (var i = 0; i < bytes.length; i++) {
+    // Build hex representation
+    if (hex_string.length > 0) hex_string += " ";
+    if (bytes[i] < 16) hex_string += "0";
+    hex_string += bytes[i].toString(16).toUpperCase();
+    
+    // Convert to character if printable (ASCII 32-126)
+    if (bytes[i] >= 32 && bytes[i] <= 126) {
+      message += String.fromCharCode(bytes[i]);
+      printable_chars++;
+    } else {
+      message += "."; // Replace non-printable with dot
+      non_printable_chars++;
+    }
+  }
+  
+  // Message analysis
+  var message_type = "text";
+  if (non_printable_chars > printable_chars) {
+    message_type = "binary";
+  } else if (non_printable_chars > 0) {
+    message_type = "mixed";
+  }
+  
+  // Check for common message patterns
+  var is_number = /^\d+$/.test(message.trim());
+  var is_sensor_data = /temp|humid|pressure|gas|light/i.test(message);
+  var is_command = /^(on|off|reset|status|help)$/i.test(message.trim());
+  
+  // Determine message category
+  var category = "general";
+  if (is_number) {
+    category = "numeric";
+  } else if (is_sensor_data) {
+    category = "sensor_info";
+  } else if (is_command) {
+    category = "command";
+  }
+  
+  return {
+    // Main message content
+    message: message,
+    message_length: bytes.length,
+    
+    // Raw data representations
+    hex_bytes: hex_string,
+    ascii_codes: bytes,
+    
+    // Message analysis
+    message_type: message_type,
+    category: category,
+    printable_chars: printable_chars,
+    non_printable_chars: non_printable_chars,
+    
+    // Pattern recognition
+    is_numeric: is_number,
+    is_sensor_related: is_sensor_data,
+    is_command: is_command,
+    
+    // Metadata
+    port: port,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// Alternative Simple Decoder (if you just want the text)
+function SimpleDecoder(bytes, port) {
+  var message = "";
+  for (var i = 0; i < bytes.length; i++) {
+    if (bytes[i] >= 32 && bytes[i] <= 126) {
+      message += String.fromCharCode(bytes[i]);
+    } else {
+      message += ".";
+    }
+  }
+  
+  return {
+    message: message,
+    length: bytes.length
+  };
+}
+
+// Example Payloads and Expected Outputs:
+//
+// Input: "Hello World"
+// Payload: [0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x57, 0x6F, 0x72, 0x6C, 0x64]
+// Output: {
+//   message: "Hello World",
+//   message_length: 11,
+//   hex_bytes: "48 65 6C 6C 6F 20 57 6F 72 6C 64",
+//   message_type: "text",
+//   category: "general"
+// }
+//
+// Input: "Temperature: 23.5C"  
+// Payload: [0x54, 0x65, 0x6D, 0x70, 0x65, 0x72, 0x61, 0x74, 0x75, 0x72, 0x65, 0x3A, 0x20, 0x32, 0x33, 0x2E, 0x35, 0x43]
+// Output: {
+//   message: "Temperature: 23.5C",
+//   message_length: 18,
+//   message_type: "text", 
+//   category: "sensor_info",
+//   is_sensor_related: true
+// }
+//
+// Input: "123"
+// Payload: [0x31, 0x32, 0x33]
+// Output: {
+//   message: "123",
+//   message_length: 3,
+//   message_type: "text",
+//   category: "numeric", 
+//   is_numeric: true
+// }
+//
+// Input: "ON"
+// Payload: [0x4F, 0x4E]  
+// Output: {
+//   message: "ON",
+//   message_length: 2,
+//   message_type: "text",
+//   category: "command",
+//   is_command: true
+// }

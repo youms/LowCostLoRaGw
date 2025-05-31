@@ -1,0 +1,41 @@
+// DS18B20 Temperature Sensor Payload Structure
+// Total: 2 bytes
+// 
+// Byte 0-1: Temperature (int16_t * 100)
+//   - Temperature in Celsius multiplied by 100 to preserve 2 decimal places
+//   - Example: 23.45°C = 2345 = 0x0929
+//   - Range: -327.68°C to +327.67°C
+//   - Signed 16-bit integer (handles negative temperatures)
+
+// TTN Decoder Function for DS18B20 Temperature Sensor
+function Decoder(bytes, port) {
+  // Check if we have the expected payload size
+  if (bytes.length !== 2) {
+    return {
+      error: "Invalid payload length. Expected 2 bytes for temperature."
+    };
+  }
+  
+  // Combine two bytes into 16-bit signed integer
+  var temp = (bytes[0] << 8) | bytes[1];
+  
+  // Handle negative temperatures (two's complement)
+  if (temp > 32767) {
+    temp -= 65536;
+  }
+  
+  // Convert back to Celsius (divide by 100)
+  var temperature = temp / 100.0;
+  
+  return {
+    temperature_celsius: temperature,
+    temperature_fahrenheit: (temperature * 9/5) + 32,
+    raw_value: temp
+  };
+}
+
+// Example payloads:
+// 23.45°C → [0x09, 0x29] → 2345 → 23.45°C
+// -5.67°C → [0xFD, 0xC5] → -571 → -5.71°C
+// 0.00°C  → [0x00, 0x00] → 0    → 0.00°C
+// 100.25°C→ [0x27, 0x29] → 10025→ 100.25°C

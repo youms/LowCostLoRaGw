@@ -8,7 +8,7 @@
  *
  *  Hardware connections:
  *  - DS18B20 data pin -> Arduino Pin 3 (changed from 4 to avoid conflict)
- *  - LoRa module as defined in DS18B20_LoRa_SX12XXX_Fixed.h
+ *  - LoRa module as defined in Lora_DS18B20_SX12XXX.h
  */
 
 #include <OneWire.h>

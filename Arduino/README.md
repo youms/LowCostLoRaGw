@@ -1,7 +1,7 @@
 # Arduino LoRa Gas & Temperature Sensor Examples
 ==================================================
 
-This folder contains Arduino sketches for LoRa-based gas detection and temperature monitoring using MCCI LMIC library. The examples are specifically designed for **Arduino Uno**, **Arduino Mega**, and **Arduino Micro** with **Dragino LoRa Shield** and demonstrate how to build low-cost IoT sensor nodes for environmental monitoring.
+This folder contains Arduino sketches for LoRa-based gas detection and temperature monitoring using both **MCCI LMIC library** and **SX12XX library**. The examples are specifically designed for **Arduino Uno**, **Arduino Mega**, and **Arduino Micro** with **Dragino LoRa Shield** and demonstrate how to build low-cost IoT sensor nodes for environmental monitoring.
 
 ## Hardware Requirements
 
@@ -40,15 +40,6 @@ MQ2 Pin         Arduino Pin      Function
   DO     ----------- Not Used    (Digital Output - Optional)
 ```
 
-#### MQ9 Gas Sensor  
-```
-MQ9 Pin         Arduino Pin      Function
-  VCC    ----------- 5V          (Power 5V)
-  GND    ----------- GND         (Ground)
-  AO     ----------- A1          (Analog Output)
-  DO     ----------- Not Used    (Digital Output - Optional)
-```
-
 #### DS18B20 Temperature Sensor
 ```
 DS18B20 Pin     Arduino Pin      Function
@@ -59,24 +50,102 @@ DS18B20 Pin     Arduino Pin      Function
 
 **Important:** DS18B20 requires a 4.7kΩ pullup resistor between DATA and VCC pins.
 
+#### DHT22 Temperature & Humidity Sensor
+```
+DHT22 Pin       Arduino Pin      Function
+  VCC    ----------- 5V          (Power 5V)
+  GND    ----------- GND         (Ground)
+  DATA   ----------- D3          (Data pin)
+```
+
 ## Library Dependencies
 
 ### Required Libraries (Install via Arduino Library Manager)
+
+#### For MCCI LMIC Examples
 1. **MCCI LoRaWAN LMIC library** - Main LoRaWAN communication library
 2. **OneWire** - For DS18B20 communication protocol
 3. **DallasTemperature** - High-level DS18B20 temperature sensor library
+4. **DHT sensor library** - For DHT22 humidity sensor (if used)
+
+#### For SX12XX Examples
+1. **SX12XX-LoRa library** by Stuart Robinson - Professional LoRa library
+2. **OneWire** - For DS18B20 communication protocol
+3. **DallasTemperature** - High-level DS18B20 temperature sensor library
+4. **DHT sensor library** - For DHT22 humidity sensor (if used)
+5. **LowPower** - For power management (Arduino AVR boards)
 
 ### Installation Steps
 1. Open Arduino IDE
 2. Go to **Sketch → Include Library → Manage Libraries**
-3. Search and install:
-   - "MCCI LoRaWAN LMIC library" by MCCI Corporation
-   - "OneWire" by Jim Studt
-   - "DallasTemperature" by Miles Burton
+3. Search and install required libraries based on your chosen examples
+
+## Project Structure
+
+### MCCI LMIC Examples (LoRaWAN/TTN)
+```
+MCCI_ttn_DS18B20/           - DS18B20 temperature sensor
+├── MCCI_ttn_DS18B20.ino    - Main sketch
+└── payload.txt             - TTN decoder function
+
+MCCI_ttn_mq2/               - MQ2 gas sensor  
+├── MCCI_ttn_mq2.ino        - Main sketch
+└── payload.txt             - TTN decoder function
+
+MCCI_ttn_Enhanced_MQ2/      - Enhanced MQ2 with calculations
+├── MCCI_ttn_Enhanced_MQ2.ino - Main sketch
+└── payload.txt             - TTN decoder function
+
+MCCI_ttn_Enhanced_Raw_MQ2/  - Memory-optimized raw MQ2
+├── MCCI_ttn_Enhanced_Raw_MQ2.ino - Main sketch
+└── payload.txt             - TTN decoder function
+
+MCCI_ttn_DS18B20_MQ2/       - Combined temperature + gas
+├── MCCI_ttn_DS18B20_MQ2.ino - Main sketch
+└── payload.txt             - TTN decoder function
+
+MCCI_ttn_Enhanced_Raw_MQ2_DS18B20/ - Combined raw sensors
+├── MCCI_ttn_Enhanced_Raw_MQ2_DS18B20.ino - Main sketch
+└── payload.txt             - TTN decoder function
+
+MCCI_ttn_abp/               - Basic LoRaWAN ABP example
+└── MCCI_ttn_abp.ino        - Standard "Hello World"
+
+MCCI_ttn_abp_custom/        - Interactive message sender
+├── MCCI_ttn_abp_custom.ino - Main sketch
+└── payload.txt             - TTN decoder function
+```
+
+### SX12XX Examples (Professional LoRa)
+```
+Lora_DS18B20_SX12XXX/       - DS18B20 with professional features
+├── Lora_DS18B20_SX12XXX.ino - Main sketch
+└── Lora_DS18B20_SX12XXX.h  - Configuration header
+
+Lora_Enhanced_MQ2_SX12XXX/  - Professional MQ2 gas monitoring
+├── Lora_Enhanced_MQ2_SX12XXX.ino - Main sketch
+└── Lora_Enhanced_MQ2_SX12XXX.h   - Configuration header
+
+Lora_Enhanced_MQ2_DS18B20_SX12XXX/ - Complete environmental station
+├── Lora_Enhanced_MQ2_DS18B20_SX12XXX.ino - Main sketch
+└── Lora_Enhanced_MQ2_DS18B20_SX12XXX.h   - Configuration header
+
+Lora_DH22_SX12XXX/          - DHT22 temperature & humidity
+├── Lora_DH22_SX12XXX.ino   - Main sketch
+└── Lora_DH22_SX12XXX.h     - Configuration header
+
+Lora_Custom_Payload_SX12XXX/ - Interactive messaging
+├── Lora_Custom_Payload_SX12XXX.ino - Main sketch
+└── Lora_Custom_Payload_SX12XXX.h   - Configuration header
+
+Lora_Ping_Pong_SX12XXX/     - Gateway communication test
+├── Lora_Ping_Pong_SX12XXX.ino - Main sketch
+└── Lora_Ping_Pong_SX12XXX.h   - Configuration header
+```
 
 ## Configuration Setup
 
-### Regional Frequency Configuration
+### Regional Frequency Configuration (MCCI LMIC)
 
 You have **two options** to configure the regional frequency:
 
@@ -119,10 +188,8 @@ Create `lmic_project_config.h` in: **`{Arduino_Libraries}/MCCI_LoRaWAN_LMIC_libr
 // #define DISABLE_PING
 ```
 
-**Note:** Option 1 (direct config.h edit) is simpler and overrides any project config settings.
-
 ### TTN (The Things Network) Configuration
-All examples use **ABP (Activation By Personalization)**. You need to:
+All MCCI LMIC examples use **ABP (Activation By Personalization)**. You need to:
 
 1. **Create TTN Application** at https://console.thethingsnetwork.org
 2. **Add Device** with ABP activation
@@ -139,24 +206,79 @@ static const PROGMEM u1_t NWKSKEY[16] = { /* Your NwkSKey in MSB format */ };
 static const u1_t PROGMEM APPSKEY[16] = { /* Your AppSKey in MSB format */ };
 ```
 
+### SX12XX Library Configuration
+For SX12XX examples, configure frequency and chip type in the header files:
+
+```cpp
+// In Lora_*.h files, uncomment your chip family
+//#define SX126X          // For newer modules (SX1262, etc.)
+#define SX127X           // For Dragino Shield (SX1276/RFM95W) 
+//#define SX128X          // For 2.4GHz modules
+
+// Set frequency for your region
+const uint32_t DEFAULT_CHANNEL = 865200000;  // EU 865.2MHz
+// const uint32_t DEFAULT_CHANNEL = 915000000;  // US 915MHz
+```
+
 ## Example Sketches
 
-### 1. **`mq2_raw_sensor.ino`** - MQ2 Gas Sensor (Memory Optimized)
+### MCCI LMIC Examples (LoRaWAN/TTN)
+
+#### 1. **`MCCI_ttn_DS18B20.ino`** - Temperature Sensor
 **Features:**
-- ✅ Raw ADC readings for TTN-side gas calculations
-- ✅ Memory optimized for Arduino Uno (~30% usage)
-- ✅ 6-byte compact payload
-- ✅ Basic gas detection alerts
-- ✅ Sensor diagnostics
+- ✅ DS18B20 digital temperature sensor
+- ✅ Standard LoRaWAN format
+- ✅ 2-byte payload (temperature × 100)
+- ✅ Automatic TTN integration
+
+**Payload Structure (2 bytes):**
+```
+Byte 0-1: Temperature × 100 (signed 16-bit, supports negative temps)
+```
+
+#### 2. **`MCCI_ttn_mq2.ino`** - Basic Gas Sensor
+**Features:**
+- ✅ MQ2 gas sensor raw ADC values
+- ✅ Simple gas detection
+- ✅ 2-byte payload
+- ✅ Basic threshold alerts
+
+**Payload Structure (2 bytes):**
+```
+Byte 0-1: Raw ADC value (0-1023)
+```
+
+#### 3. **`MCCI_ttn_Enhanced_MQ2.ino`** - Advanced Gas Sensor
+**Features:**
+- ✅ Multiple gas concentration calculations
+- ✅ 7 different gas types detected
+- ✅ 10-byte detailed payload
+- ✅ Safety threshold monitoring
 
 **Gas Detection Capability:**
 - LPG (Liquefied Petroleum Gas)
-- Methane (Natural Gas)
+- Methane (CH4)
 - Carbon Monoxide (CO)
-- Hydrogen (H₂)
+- Hydrogen (H2)
 - Alcohol/Ethanol
 - Propane
 - Smoke particles
+
+**Payload Structure (10 bytes):**
+```
+Byte 0-1: Raw ADC value
+Byte 2-3: LPG concentration (ppm)
+Byte 4-5: Methane concentration (ppm)
+Byte 6-7: CO concentration (ppm)
+Byte 8-9: Rs/R0 ratio × 1000
+```
+
+#### 4. **`MCCI_ttn_Enhanced_Raw_MQ2.ino`** - Memory Optimized Gas Sensor
+**Features:**
+- ✅ Raw sensor data for TTN-side calculations
+- ✅ Memory optimized for Arduino Uno (~30% usage)
+- ✅ 6-byte compact payload
+- ✅ All gas calculations performed on TTN
 
 **Payload Structure (6 bytes):**
 ```
@@ -165,107 +287,111 @@ Byte 2-3: Sensor resistance Rs÷10 (ohms)
 Byte 4-5: Rs/R0 ratio × 1000
 ```
 
-### 2. **`mq2_ds18b20_combined.ino`** - Combined Gas & Temperature
+#### 5. **`MCCI_ttn_DS18B20_MQ2.ino`** - Combined Sensors
 **Features:**
-- ✅ MQ2 gas sensor + DS18B20 temperature sensor
-- ✅ Memory optimized for Arduino Uno (~35% usage)
-- ✅ 8-byte payload (6 for MQ2 + 2 for temperature)
-- ✅ Combined safety alerts
+- ✅ DS18B20 + MQ2 in single device
 - ✅ Environmental monitoring
+- ✅ 4-byte efficient payload
+- ✅ Combined alerts
+
+**Payload Structure (4 bytes):**
+```
+Byte 0-1: Temperature × 100 (signed)
+Byte 2-3: MQ2 gas sensor ADC value
+```
+
+#### 6. **`MCCI_ttn_Enhanced_Raw_MQ2_DS18B20.ino`** - Combined Raw Sensors
+**Features:**
+- ✅ Both sensors with raw data approach
+- ✅ Memory optimized for Arduino Uno (~30% usage)
+- ✅ 8-byte payload
+- ✅ Complete environmental monitoring
+- ✅ TTN-side calculations
 
 **Payload Structure (8 bytes):**
 ```
 Byte 0-1: MQ2 ADC value
 Byte 2-3: MQ2 resistance Rs÷10
 Byte 4-5: Rs/R0 ratio × 1000  
-Byte 6-7: Temperature × 100 (supports negative temps)
+Byte 6-7: Temperature × 100 (signed)
 ```
 
-### 3. **`mq9_raw_sensor.ino`** - MQ9 Gas Sensor
+#### 7. **`MCCI_ttn_abp.ino`** - Basic LoRaWAN Example
 **Features:**
-- ✅ MQ9 specific gas detection (CO, CH4, LPG)
-- ✅ Optimized for MQ9 characteristics
-- ✅ Similar payload structure to MQ2
-- ✅ CO-specific safety thresholds
+- ✅ Standard "Hello World" LoRaWAN transmission
+- ✅ Testing TTN connectivity
+- ✅ Template for custom applications
 
-**MQ9 Gas Detection:**
-- Carbon Monoxide (primary)
-- Methane
-- LPG
-- Flammable gases
-
-### 4. **`multi_gas_temperature.ino`** - MQ2 + MQ9 + DS18B20
-**Features:**
-- ✅ Dual gas sensors + temperature
-- ✅ Comprehensive environmental monitoring
-- ✅ 12-byte payload for complete data
-- ✅ Cross-sensor validation
-- ✅ Advanced safety algorithms
-
-**Payload Structure (12 bytes):**
-```
-Byte 0-1: MQ2 ADC value
-Byte 2-3: MQ2 Rs/R0 ratio × 1000
-Byte 4-5: MQ9 ADC value  
-Byte 6-7: MQ9 Rs/R0 ratio × 1000
-Byte 8-9: Temperature × 100
-Byte 10-11: Reserved/Status flags
-```
-
-### 5. **`interactive_sender.ino`** - Manual Message Sender
+#### 8. **`MCCI_ttn_abp_custom.ino`** - Interactive Message Sender
 **Features:**
 - ✅ Send custom messages via Serial Monitor
 - ✅ Interactive testing and debugging
 - ✅ Variable payload length (1-64 bytes)
 - ✅ Real-time transmission feedback
 
-### 6. **`Lora_Enhanced_MQ2_DS18B20_SX12XXX.ino`** - Professional Environmental Station
+### SX12XX Examples (Professional LoRa)
+
+#### 1. **`Lora_DS18B20_SX12XXX.ino`** - Professional Temperature Sensor
 **Features:**
-- ✅ **Modular SX12XX library** support (SX126X, SX127X, SX128X)
-- ✅ **Combined sensors** (DS18B20 + MQ2) with error handling
 - ✅ **Advanced power management** with hibernation modes
-- ✅ **Professional gateway compatibility** (Congduc Pham format)
 - ✅ **EEPROM persistence** for packet sequence numbers
 - ✅ **ACK support** with SNR reporting
-- ✅ **Environmental alerts** with safety thresholds
 - ✅ **Carrier sense** before transmission (Listen-Before-Talk)
-- ✅ **CRC verification** and comprehensive error handling
 - ✅ **Multi-platform support** (AVR, SAMD, Teensy, ESP8266/32)
+- ✅ **Gateway-compatible format** (Congduc Pham style)
+
+#### 2. **`Lora_Enhanced_MQ2_SX12XXX.ino`** - Professional Gas Monitoring
+**Features:**
+- ✅ **Complete gas analysis** with 7 gas types
+- ✅ **Low power optimization** for battery operation
+- ✅ **Professional gateway integration**
+- ✅ **Real-time safety alerts**
+- ✅ **Configurable transmission intervals**
+
+#### 3. **`Lora_Enhanced_MQ2_DS18B20_SX12XXX.ino`** - Complete Environmental Station
+**Features:**
+- ✅ **Combined sensors** (DS18B20 + MQ2) with error handling
+- ✅ **Environmental safety monitoring** with comprehensive alerts
+- ✅ **Cross-sensor correlation** and validation
+- ✅ **Graceful degradation** (continues if one sensor fails)
+- ✅ **Professional data format** for gateway compatibility
 
 **Enhanced Payload Format:**
 ```
 \!TC/23.45/LPG/250.1/CH4/180.3/CO/45.2/H2/120.5/ALC/85.7/ADC/345
 ```
 
-**Advanced Configuration Options:**
-```cpp
-#define WITH_EEPROM              // Persistent packet counters
-#define LOW_POWER                // Sleep modes for battery operation  
-#define LOW_POWER_HIBERNATE      // Deepest sleep (platform-specific)
-#define WITH_ACK                 // Request acknowledgments from gateway
-#define ENVIRONMENTAL_ALERTS     // Enhanced safety monitoring
-#define PUBLIC_SYNCWORD         // LoRaWAN gateway compatibility
-#define MY_FREQUENCY 868100000  // Custom frequency override
-```
+#### 4. **`Lora_DH22_SX12XXX.ino`** - Humidity and Temperature
+**Features:**
+- ✅ **DHT22 sensor** for temperature and humidity
+- ✅ **Heat index calculation**
+- ✅ **Averaged readings** for accuracy
+- ✅ **Low power support** with external sensor control
 
-**Platform-Specific Features:**
-- **Arduino AVR** (Uno/Nano/Pro Mini): LowPower library with 8-second cycles
-- **Teensy** (LC/31/32/35/36): Snooze library with precise timing
-- **SAMD21** (Zero/M0): Built-in RTC for accurate wake-up
-- **ESP8266/ESP32**: Deep sleep with microsecond precision
-- **Arduino Mega**: Extended memory support for complex projects
+#### 5. **`Lora_Custom_Payload_SX12XXX.ino`** - Interactive Messaging
+**Features:**
+- ✅ **Real-time message input** via Serial Monitor
+- ✅ **Character-by-character echo** and backspace support
+- ✅ **Message validation** and feedback
+- ✅ **Professional transmission** with detailed status
 
-## SX12XX Library (Stuart Robinson)
+#### 6. **`Lora_Ping_Pong_SX12XXX.ino`** - Gateway Communication Test
+**Features:**
+- ✅ **Gateway connectivity testing**
+- ✅ **ACK-based ping-pong** communication
+- ✅ **Signal quality reporting** (SNR, RSSI)
+- ✅ **Automatic retry** mechanisms
 
-The **professional environmental station** example uses the **SX12XX library** for advanced LoRa communication, offering significant advantages over MCCI LMIC for direct sensor applications.
+## SX12XX Library Features
 
-### **SX12XX Advantages over MCCI LMIC:**
+The **SX12XX library** by Stuart Robinson offers significant advantages for professional sensor applications:
+
+### **Advantages over MCCI LMIC:**
 - ✅ **Multi-chip support** (SX126X, SX127X, SX128X) 
 - ✅ **Direct LoRa control** without LoRaWAN protocol overhead
 - ✅ **Better power management** with precise sleep/wake control
 - ✅ **Lower memory usage** - perfect for Arduino Uno
 - ✅ **Professional radio management** with carrier sense
-- ✅ **Better downlink handling** with precise timing control
 - ✅ **Modular design** - easy to add/remove features
 - ✅ **Gateway compatibility** with packet formatting
 - ✅ **Hardware abstraction** for multiple platforms
@@ -277,72 +403,6 @@ The **professional environmental station** example uses the **SX12XX library** f
 | **SX126X** | SX1261, SX1262, SX1268 | 433/868/915 MHz | Latest generation, better efficiency |
 | **SX128X** | SX1280, SX1281 | 2.4 GHz | High-speed, ranging capability |
 
-### **Hardware Configuration Selection:**
-```cpp
-// Uncomment only ONE chip family
-//#define SX126X          // For newer modules (SX1262, etc.)
-#define SX127X           // For Dragino Shield (SX1276/RFM95W) 
-//#define SX128X          // For 2.4GHz modules
-
-// Pin definitions adjust automatically based on selection
-#ifdef SX127X
-#define NSS 10           // SPI Chip Select
-#define NRESET 4         // Reset pin  
-#define DIO0 -1          // Not used in polling mode
-#define LORA_DEVICE DEVICE_SX1276
-#endif
-```
-
-### **Professional Features:**
-
-#### **1. Carrier Sense (Listen-Before-Talk):**
-```cpp
-// Check channel before transmission
-LT.CarrierSense();
-if (LT.transmitAddressed(message, size, type, dest, source, timeout, power, WAIT_TX)) {
-  // Transmission successful
-}
-```
-
-#### **2. Advanced Power Management:**
-```cpp
-// Put radio to sleep between transmissions  
-LT.setSleep(CONFIGURATION_RETENTION);
-
-// Platform-specific deep sleep
-#ifdef __SAMD21G18A__
-  rtc.standbyMode();              // M0/Zero RTC sleep
-#elif defined ESP8266
-  ESP.deepSleep(period*1000000);  // ESP8266 deep sleep
-#else
-  LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF); // AVR sleep
-#endif
-```
-
-#### **3. Packet Acknowledgment System:**
-```cpp
-#ifdef WITH_ACK
-  uint8_t p_type = PKT_TYPE_DATA | PKT_FLAG_ACK_REQ;
-  
-  if (LT.transmitAddressed(message, size, p_type, dest, source, timeout, power, WAIT_TX)) {
-    if (LT.readAckStatus()) {
-      Serial.print("ACK received! SNR: ");
-      Serial.println(LT.readPacketSNRinACK());
-    }
-  }
-#endif
-```
-
-#### **4. Professional Error Handling:**
-```cpp
-if (!LT.transmit(data, size, timeout, power, WAIT_TX)) {
-  uint16_t IRQStatus = LT.readIrqStatus();
-  Serial.print("Transmission failed - IRQ: 0x");
-  Serial.println(IRQStatus, HEX);
-  LT.printIrqStatus();  // Detailed error analysis
-}
-```
-
 ### **When to Use SX12XX vs MCCI LMIC:**
 
 #### **Use SX12XX for:**
@@ -351,7 +411,6 @@ if (!LT.transmit(data, size, timeout, power, WAIT_TX)) {
 - 🔋 **Battery-powered** remote monitoring
 - 🎯 **Custom gateway** integration (Congduc Pham style)
 - ⚡ **Memory-constrained** Arduino Uno projects
-- 🔄 **Bidirectional** communication needs
 - 🧪 **Research and development** projects
 
 #### **Use MCCI LMIC for:**
@@ -361,241 +420,10 @@ if (!LT.transmit(data, size, timeout, power, WAIT_TX)) {
 - 📡 **Multi-operator** compatibility
 - 🌍 **Global deployment** with regional compliance
 
-## LoRa Mode
-
-The examples use **LoRa Mode 1** by default, which provides the best range and sensitivity for sensor applications.
-
-### **Pre-defined LoRa Modes:**
-
-| Mode | Bandwidth | Spreading Factor | Code Rate | Range | Speed | Power |
-|------|-----------|------------------|-----------|-------|--------|-------|
-| **1** | 125 kHz | SF12 | CR4/5 | ⭐⭐⭐ Max | 🐌 Slow | 💚 Low |
-| **2** | 250 kHz | SF12 | CR4/5 | ⭐⭐⭐ High | 🐌 Slow | 💚 Low |
-| **3** | 125 kHz | SF10 | CR4/5 | ⭐⭐ Good | 🚶 Medium | 💛 Medium |
-| **4** | 500 kHz | SF12 | CR4/5 | ⭐⭐ Good | 🚶 Medium | 💛 Medium |
-| **5** | 250 kHz | SF10 | CR4/5 | ⭐⭐ Good | 🚶 Medium | 💛 Medium |
-| **6** | 500 kHz | SF11 | CR4/5 | ⭐⭐ Good | 🏃 Fast | 💛 Medium |
-| **7** | 250 kHz | SF9 | CR4/5 | ⭐ Medium | 🏃 Fast | 🧡 High |
-| **8** | 500 kHz | SF9 | CR4/5 | ⭐ Medium | 🏃 Fast | 🧡 High |
-| **9** | 500 kHz | SF8 | CR4/5 | ⭐ Short | 🏃‍♂️ Fast | 🧡 High |
-| **10** | 500 kHz | SF7 | CR4/5 | ⭐ Short | 🏃‍♂️ Very Fast | ❤️ High |
-
-### **Mode Selection Guidelines:**
-
-#### **For Gas/Temperature Sensors (Recommended: Mode 1)**
-- 🏠 **Indoor monitoring:** Mode 1 (SF12BW125) - Maximum sensitivity
-- 🏭 **Industrial areas:** Mode 1 (SF12BW125) - Penetrates obstacles  
-- 🌾 **Outdoor long-range:** Mode 1 (SF12BW125) - Up to 15km rural
-- 🏘️ **Urban environments:** Mode 3 (SF10BW125) - Good range, faster
-
-#### **For Interactive/Testing Applications:**
-- 🧪 **Development/testing:** Mode 6 (SF11BW500) - Balance of range/speed
-- 💬 **Interactive sender:** Mode 8 (SF9BW500) - Fast response
-- 📊 **High-frequency data:** Mode 10 (SF7BW500) - Maximum speed
-
-### **Changing LoRa Mode in Code:**
-```cpp
-// In your Arduino sketch, modify this line:
-#define LORAMODE 1  // Change to desired mode (1-10)
-
-// Or for SX12XX library:
-LT.setupLoRa(868100000, 0, LORA_SF10, LORA_BW_125, LORA_CR_4_5); // Mode 3
-```
-
-### **Range vs Speed Trade-off:**
-- **Higher SF (12)** = Longer range, slower speed, more power efficient
-- **Lower SF (7)** = Shorter range, faster speed, less power efficient  
-- **Wider BW (500)** = Faster speed, shorter range
-- **Narrower BW (125)** = Longer range, slower speed
-
-## AES Encryption
-
-For secure sensor data transmission, AES encryption can be enabled to protect against eavesdropping and tampering.
-
-### **Enabling AES in MCCI LMIC:**
-```cpp
-// Add to your sketch before setup()
-#define WITH_AES 1
-
-// The LMIC library handles LoRaWAN encryption automatically
-// using your NwkSKey and AppSKey
-```
-
-### **AES Features:**
-- ✅ **AES-128 encryption** for payload data
-- ✅ **LoRaWAN standard** encryption (automatic)
-- ✅ **Message integrity** with MIC (Message Integrity Code)
-- ✅ **Replay protection** with frame counters
-- ✅ **Network-level security** with NwkSKey
-- ✅ **Application-level security** with AppSKey
-
-### **Security Levels:**
-
-#### **LoRaWAN (Recommended):**
-- 🔐 **Network encryption** (NwkSKey) - Protects routing info
-- 🔐 **Application encryption** (AppSKey) - Protects sensor data
-- 🔐 **Message authentication** (MIC) - Prevents tampering
-- 🔐 **Frame counter** - Prevents replay attacks
-
-#### **Custom AES (Advanced):**
-```cpp
-// For SX12XX library with custom encryption
-#include "AES.h"
-
-void encryptSensorData(uint8_t* data, uint8_t len) {
-  uint8_t key[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
-                     0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
-  
-  AES aes;
-  aes.do_aes_encrypt(data, len, key, sizeof(key));
-}
-```
-
-### **Memory Impact:**
-- **MCCI LMIC:** ~2KB additional for LoRaWAN crypto
-- **Custom AES:** ~1KB for AES library
-- **Arduino Uno:** May need optimization for complex projects
-
-### **When to Use Encryption:**
-- 🏢 **Commercial deployments** - Always recommended
-- 🏭 **Industrial monitoring** - Critical for security
-- 🏠 **Home automation** - Protects privacy
-- 🧪 **Development/testing** - Optional, can disable for debugging
-
-## Receive Window (Downlink)
-
-Downlink communication allows the gateway or server to send commands back to sensor nodes for configuration, control, or acknowledgment.
-
-### **LoRaWAN Downlink (MCCI LMIC):**
-
-#### **Enabling Downlink:**
-```cpp
-// Add to your sketch
-#define WITH_RCVW 1  // Enable receive window
-
-void onEvent(ev_t ev) {
-  switch(ev) {
-    case EV_TXCOMPLETE:
-      if (LMIC.dataLen) {
-        Serial.print("Downlink received: ");
-        for (int i = 0; i < LMIC.dataLen; i++) {
-          Serial.print((char)LMIC.frame[LMIC.dataBeg + i]);
-        }
-        Serial.println();
-        processDownlinkCommand();
-      }
-      break;
-  }
-}
-```
-
-#### **LoRaWAN RX Windows:**
-- **RX1 Window:** Opens 1 second after transmission (same frequency/SF)
-- **RX2 Window:** Opens 2 seconds after transmission (869.525MHz, SF9 for EU)
-- **Automatic timing** handled by LMIC library
-
-### **Simple LoRa Downlink (SX12XX):**
-```cpp
-void sendSensorDataWithDownlink() {
-  // Send uplink data
-  uint8_t uplink[] = "Gas:250ppm Temp:23.5C";
-  LT.transmit(uplink, sizeof(uplink), 10000, 14, WAIT_TX);
-  
-  // Open receive window immediately
-  uint8_t downlink[64];
-  uint8_t rxLen = LT.receive(downlink, sizeof(downlink), 5000, WAIT_RX);
-  
-  if (rxLen > 0) {
-    Serial.println("Command received!");
-    processCommand(downlink, rxLen);
-  }
-}
-
-void processCommand(uint8_t* cmd, uint8_t len) {
-  String command = String((char*)cmd);
-  
-  if (command.startsWith("LED")) {
-    digitalWrite(LED_PIN, command.endsWith("ON") ? HIGH : LOW);
-  } else if (command.startsWith("INTERVAL")) {
-    // Change transmission interval
-    updateInterval(command.substring(8).toInt());
-  } else if (command.startsWith("CALIBRATE")) {
-    // Recalibrate gas sensors
-    calibrateSensors();
-  }
-}
-```
-
-### **Downlink Command Examples:**
-
-#### **Device Control:**
-- `LED_ON` / `LED_OFF` - Control status LED
-- `RESET` - Restart device
-- `SLEEP_3600` - Sleep for 1 hour
-- `INTERVAL_300` - Change to 5-minute intervals
-
-#### **Sensor Configuration:**
-- `CALIBRATE_MQ2` - Recalibrate MQ2 sensor
-- `THRESHOLD_CO_100` - Set CO alert threshold to 100ppm
-- `SAMPLE_RATE_10` - Take 10 samples for averaging
-
-#### **Network Management:**
-- `SET_SF_10` - Change spreading factor to 10
-- `SET_POWER_10` - Change TX power to 10dBm
-- `SET_FREQ_868300` - Change frequency to 868.3MHz
-
-### **Downlink Timing Strategies:**
-
-#### **Immediate Response:**
-```cpp
-// Send data, listen immediately
-transmitData();
-if (receiveDownlink(2000)) {  // 2 second timeout
-  processCommand();
-}
-```
-
-#### **LoRaWAN-style Delays:**
-```cpp
-// Send data
-transmitData();
-
-// RX1 window (1s delay)
-delay(1000);
-if (receiveDownlink(1000)) {
-  processCommand();
-  return;
-}
-
-// RX2 window (additional 1s delay)  
-delay(1000);
-if (receiveDownlink(1000)) {
-  processCommand();
-}
-```
-
-#### **Power-Optimized:**
-```cpp
-// Short receive window to save battery
-transmitData();
-if (receiveDownlink(500)) {  // Very short timeout
-  processCommand();
-} else {
-  enterSleepMode();  // No command, go to sleep
-}
-```
-
-### **Downlink Best Practices:**
-- ⏰ **Keep RX windows short** to save power
-- 🔄 **Implement command acknowledgment** for reliability
-- 🛡️ **Validate commands** before execution
-- 📝 **Log downlink activity** for debugging
-- 🔋 **Balance responsiveness vs battery life**
-
 ## Advanced Features
 
-### Gateway-Compatible Data Format
-The professional environmental station uses **Congduc Pham's gateway format** for maximum compatibility:
+### Gateway-Compatible Data Format (SX12XX)
+Professional environmental stations use **Congduc Pham's gateway format**:
 
 ```cpp
 // Standard format: \!SENSOR/value/SENSOR/value...
@@ -607,6 +435,8 @@ sprintf(message, "\\!TC/%s/LPG/%s/CH4/%s/CO/%s/H2/%s/ALC/%s/ADC/%d",
 
 **Nomenclature Reference:**
 - **TC**: Temperature Celsius  
+- **HU**: Humidity (%)
+- **HI**: Heat Index
 - **LPG**: Liquefied Petroleum Gas (ppm)
 - **CH4**: Methane (ppm)
 - **CO**: Carbon Monoxide (ppm)  
@@ -614,8 +444,8 @@ sprintf(message, "\\!TC/%s/LPG/%s/CH4/%s/CO/%s/H2/%s/ALC/%s/ADC/%d",
 - **ALC**: Alcohol (ppm)
 - **ADC**: Raw ADC value for diagnostics
 
-### EEPROM Persistence
-Maintains packet sequence numbers across power cycles and reboots:
+### EEPROM Persistence (SX12XX)
+Maintains packet sequence numbers across power cycles:
 
 ```cpp
 #ifdef WITH_EEPROM
@@ -628,13 +458,8 @@ struct sx1272config {
 // Automatic save after each transmission
 my_sx1272config.seq = LT.readTXSeqNo();    
 EEPROM.put(0, my_sx1272config);
+#endif
 ```
-
-**Benefits:**
-- ✅ **Continuous numbering** after device reset
-- ✅ **Packet loss detection** at gateway
-- ✅ **Network debugging** assistance
-- ✅ **Data integrity** verification
 
 ### Environmental Safety Monitoring
 Comprehensive safety threshold system with alerts:
@@ -661,15 +486,7 @@ String getEnvironmentalAlert(float tempC, float lpg, float methane, float co, fl
 #endif
 ```
 
-**Alert Levels:**
-| Parameter | Normal | High | Danger | Action |
-|-----------|--------|------|--------|--------|
-| **Temperature** | 0-35°C | 35-50°C | >50°C or <0°C | Monitor/Investigate |
-| **CO** | <50 ppm | 50-200 ppm | >200 ppm | Ventilate/Evacuate |
-| **LPG/Methane** | <1000 ppm | 1000-5000 ppm | >5000 ppm | Check sources/Ventilate |
-| **Alcohol** | <1000 ppm | >1000 ppm | N/A | Monitor activity |
-
-### Multi-Platform Low Power Support
+### Multi-Platform Low Power Support (SX12XX)
 Optimized sleep modes for different microcontrollers:
 
 #### **Arduino AVR (Uno/Nano/Pro Mini):**
@@ -709,58 +526,142 @@ rtc.standbyMode();
 ESP.deepSleep(LOW_POWER_PERIOD*1000*1000);  // Auto-restart after wake
 ```
 
-### Comprehensive Error Handling
-Professional-grade error detection and recovery:
+## LoRa Mode Configuration
 
+The examples use **LoRa Mode 1** by default for maximum range and sensitivity:
+
+### **Pre-defined LoRa Modes:**
+
+| Mode | Bandwidth | Spreading Factor | Code Rate | Range | Speed | Power |
+|------|-----------|------------------|-----------|-------|--------|-------|
+| **1** | 125 kHz | SF12 | CR4/5 | ⭐⭐⭐ Max | 🐌 Slow | 💚 Low |
+| **2** | 250 kHz | SF12 | CR4/5 | ⭐⭐⭐ High | 🐌 Slow | 💚 Low |
+| **3** | 125 kHz | SF10 | CR4/5 | ⭐⭐ Good | 🚶 Medium | 💛 Medium |
+| **4** | 500 kHz | SF12 | CR4/5 | ⭐⭐ Good | 🚶 Medium | 💛 Medium |
+| **5** | 250 kHz | SF10 | CR4/5 | ⭐⭐ Good | 🚶 Medium | 💛 Medium |
+| **6** | 500 kHz | SF11 | CR4/5 | ⭐⭐ Good | 🏃 Fast | 💛 Medium |
+| **7** | 250 kHz | SF9 | CR4/5 | ⭐ Medium | 🏃 Fast | 🧡 High |
+| **8** | 500 kHz | SF9 | CR4/5 | ⭐ Medium | 🏃 Fast | 🧡 High |
+| **9** | 500 kHz | SF8 | CR4/5 | ⭐ Short | 🏃‍♂️ Fast | 🧡 High |
+| **10** | 500 kHz | SF7 | CR4/5 | ⭐ Short | 🏃‍♂️ Very Fast | ❤️ High |
+
+### **Recommended Modes by Application:**
+
+#### **Gas/Temperature Sensors:**
+- 🏠 **Indoor monitoring:** Mode 1 (SF12BW125) - Maximum sensitivity
+- 🏭 **Industrial areas:** Mode 1 (SF12BW125) - Penetrates obstacles  
+- 🌾 **Outdoor long-range:** Mode 1 (SF12BW125) - Up to 15km rural
+- 🏘️ **Urban environments:** Mode 3 (SF10BW125) - Good range, faster
+
+#### **Interactive Applications:**
+- 🧪 **Development/testing:** Mode 6 (SF11BW500) - Balance of range/speed
+- 💬 **Interactive sender:** Mode 8 (SF9BW500) - Fast response
+
+## AES Encryption
+
+### **LoRaWAN Encryption (MCCI LMIC):**
 ```cpp
-// Sensor error detection
-bool tempError = (tempC == DEVICE_DISCONNECTED_C);
-bool gasError = (sensorValue == 0 || Rs == 0);
-bool sensorError = tempError && gasError;  // Both failed
+// Encryption is automatic in LoRaWAN - handled by LMIC library
+// using your NwkSKey and AppSKey from TTN console
 
-// Graceful degradation - continue with working sensors
-if (!sensorError) {
-  // Build message with available data
-  if (tempError) strcpy(temp_str, "ERR");
-  if (gasError) strcpy(lpg_str, "ERR");
-  
-  // Transmit partial data rather than complete failure
-  transmitData();
+// Security features included:
+// ✅ AES-128 payload encryption
+// ✅ Message integrity (MIC)  
+// ✅ Replay protection
+// ✅ Network-level security
+```
+
+### **Security Levels:**
+
+#### **LoRaWAN (Automatic):**
+- 🔐 **Network encryption** (NwkSKey) - Protects routing info
+- 🔐 **Application encryption** (AppSKey) - Protects sensor data
+- 🔐 **Message authentication** (MIC) - Prevents tampering
+- 🔐 **Frame counter** - Prevents replay attacks
+
+#### **When to Use Encryption:**
+- 🏢 **Commercial deployments** - Always recommended
+- 🏭 **Industrial monitoring** - Critical for security
+- 🏠 **Home automation** - Protects privacy
+- 🧪 **Development/testing** - Optional, can disable for debugging
+
+## Downlink Communication (MCCI LMIC Only)
+
+Downlink communication allows TTN or servers to send commands back to sensor nodes. **Note: SX12XX library does not support downlink functionality.**
+
+### **LoRaWAN Downlink (MCCI LMIC):**
+
+#### **Enabling Downlink:**
+```cpp
+void onEvent(ev_t ev) {
+  switch(ev) {
+    case EV_TXCOMPLETE:
+      if (LMIC.dataLen) {
+        Serial.print("Downlink received: ");
+        for (int i = 0; i < LMIC.dataLen; i++) {
+          Serial.print((char)LMIC.frame[LMIC.dataBeg + i]);
+        }
+        Serial.println();
+        processDownlinkCommand();
+      }
+      break;
+  }
 }
 ```
 
-### CRC and Packet Verification
-Built-in data integrity checking:
+#### **LoRaWAN RX Windows:**
+- **RX1 Window:** Opens 1 second after transmission (same frequency/SF)
+- **RX2 Window:** Opens 2 seconds after transmission (869.525MHz, SF9 for EU)
+- **Automatic timing** handled by LMIC library
 
+### **Downlink Command Examples:**
+
+#### **Device Control:**
+- `LED_ON` / `LED_OFF` - Control status LED
+- `RESET` - Restart device
+- `SLEEP_3600` - Sleep for 1 hour
+- `INTERVAL_300` - Change to 5-minute intervals
+
+#### **Sensor Configuration:**
+- `CALIBRATE_MQ2` - Recalibrate MQ2 sensor
+- `THRESHOLD_CO_100` - Set CO alert threshold to 100ppm
+- `SAMPLE_RATE_10` - Take 10 samples for averaging
+
+#### **Network Management:**
+- `SET_SF_10` - Change spreading factor to 10
+- `SET_POWER_10` - Change TX power to 10dBm
+- `SET_FREQ_868300` - Change frequency to 868.3MHz
+
+### **Processing Downlink Commands:**
 ```cpp
-if (LT.transmitAddressed(message, r_size, p_type, dest, source, timeout, power, WAIT_TX)) {
-  uint16_t localCRC = LT.CRCCCITT(message, r_size, 0xFFFF);
-  Serial.print("CRC: 0x");
-  Serial.println(localCRC, HEX);
+void processDownlinkCommand() {
+  String command = "";
+  for (int i = 0; i < LMIC.dataLen; i++) {
+    command += (char)LMIC.frame[LMIC.dataBeg + i];
+  }
   
-  // Gateway can verify packet integrity
+  if (command.startsWith("LED")) {
+    digitalWrite(LED_PIN, command.endsWith("ON") ? HIGH : LOW);
+  } else if (command.startsWith("INTERVAL")) {
+    // Change transmission interval
+    updateInterval(command.substring(8).toInt());
+  } else if (command.startsWith("CALIBRATE")) {
+    // Recalibrate gas sensors
+    calibrateSensors();
+  }
 }
 ```
 
-### Board Auto-Detection
-Automatic platform identification for optimal configuration:
-
-```cpp
-#ifdef ARDUINO_AVR_PRO
-  Serial.println("Arduino Pro Mini detected");  
-#endif
-#ifdef __MK66FX1M0__
-  Serial.println("Teensy36 detected");
-#endif
-#ifdef ESP32 
-  Serial.println("ESP32 detected");
-#endif
-// ... supports 15+ different platforms
-```
+### **Downlink Best Practices:**
+- ⏰ **Keep RX windows short** to save power
+- 🔄 **Implement command acknowledgment** for reliability
+- 🛡️ **Validate commands** before execution
+- 📝 **Log downlink activity** for debugging
+- 🔋 **Balance responsiveness vs battery life**
 
 ## Gas Concentration Formulas
 
-All gas concentrations are calculated on TTN using these formulas:
+All gas concentrations are calculated using these formulas (TTN decoder or device-side):
 
 | Gas | Formula | Detection Range |
 |-----|---------|-----------------|
@@ -771,6 +672,10 @@ All gas concentrations are calculated on TTN using these formulas:
 | **Alcohol** | `75.906 × (Rs/R0)^(-1.691)` ppm | 100-2,000 ppm |
 | **Propane** | `614.56 × (Rs/R0)^(-2.564)` ppm | 200-5,000 ppm |
 | **Smoke** | `143.01 × (Rs/R0)^(-2.186)` ppm | Variable |
+
+**Where:**
+- **Rs** = Sensor resistance in gas
+- **R0** = Sensor resistance in clean air (baseline)
 
 ## Safety Thresholds
 
@@ -788,10 +693,19 @@ All gas concentrations are calculated on TTN using these formulas:
 | **Caution** | 35-50°C or -10-0°C | Monitor closely |
 | **Warning** | >50°C or <-10°C | Investigate cause |
 
+### Alert Levels (SX12XX Examples)
+| Parameter | Normal | High | Danger | Action |
+|-----------|--------|------|--------|--------|
+| **Temperature** | 0-35°C | 35-50°C | >50°C or <0°C | Monitor/Investigate |
+| **CO** | <50 ppm | 50-200 ppm | >200 ppm | Ventilate/Evacuate |
+| **LPG/Methane** | <1000 ppm | 1000-5000 ppm | >5000 ppm | Check sources/Ventilate |
+| **Alcohol** | <1000 ppm | >1000 ppm | N/A | Monitor activity |
+
 ## TTN Payload Decoders
 
-Each example includes corresponding TTN payload decoder functions that provide:
+Each MCCI LMIC example includes comprehensive TTN payload decoder functions:
 
+### **Decoder Features:**
 - ✅ **Gas concentration calculations** for all detectable gases
 - ✅ **Safety level assessment** (Normal/Caution/Warning/Danger)
 - ✅ **Environmental type detection** (Kitchen/Garage/Industrial)
@@ -800,34 +714,93 @@ Each example includes corresponding TTN payload decoder functions that provide:
 - ✅ **Sensor diagnostics** and calibration status
 - ✅ **Historical data compatibility** for trend analysis
 
+### **Example TTN v3 Decoder (Raw MQ2):**
+```javascript
+function decodeUplink(input) {
+  var bytes = input.bytes;
+  var raw_adc = (bytes[0] << 8) | bytes[1];
+  var sensor_resistance = ((bytes[2] << 8) | bytes[3]) * 10;
+  var rs_r0_ratio = ((bytes[4] << 8) | bytes[5]) / 1000.0;
+  
+  // Calculate all gas concentrations
+  var lpg_ppm = Math.round(987.26 * Math.pow(rs_r0_ratio, -2.162));
+  var methane_ppm = Math.round(2217.8 * Math.pow(rs_r0_ratio, -2.827));
+  var co_ppm = Math.round(605.18 * Math.pow(rs_r0_ratio, -3.937));
+  
+  return {
+    data: {
+      sensor: {
+        raw_adc_value: raw_adc,
+        resistance_ohms: sensor_resistance,
+        rs_r0_ratio: rs_r0_ratio
+      },
+      concentrations: {
+        lpg_ppm: lpg_ppm,
+        methane_ppm: methane_ppm,
+        co_ppm: co_ppm
+      },
+      safety: {
+        level: co_ppm > 200 ? "DANGER" : lpg_ppm > 1000 ? "WARNING" : "SAFE"
+      }
+    }
+  };
+}
+```
+
 ## Memory Usage Optimization
 
 ### Arduino Uno Memory Comparison
-| Approach | Memory Used | Available Space |
-|----------|------------|-----------------|
-| **Raw sensors (recommended)** | ~30-35% | 20-23KB free |
-| **Calculated approach** | ~70% | 9KB free |
+| Approach | Memory Used | Available Space | Recommended For |
+|----------|------------|-----------------|-----------------|
+| **Raw sensors (TTN calc)** | ~30-35% | 20-23KB free | **Most projects** |
+| **Device calculations** | ~70% | 9KB free | Simple monitoring |
+| **SX12XX professional** | ~45-55% | 15-18KB free | **Advanced features** |
 
-### Optimization Benefits
+### **Memory Optimization Benefits:**
 - ✅ **More memory** for additional sensors
 - ✅ **Room for LCD displays** or SD card logging  
 - ✅ **Stable operation** with memory headroom
 - ✅ **Future expansion** capability
 - ✅ **Flexible gas formulas** - update on TTN without reprogramming
 
+### **Choosing the Right Approach:**
+
+#### **For Arduino Uno Projects:**
+1. **Raw sensor data** (MCCI_ttn_Enhanced_Raw_*) - **Recommended**
+2. **SX12XX library** - For professional features
+3. **Avoid device calculations** - Use TTN decoders instead
+
+#### **For Arduino Mega Projects:**
+- Any approach works well
+- Can combine multiple sensors
+- Room for complex algorithms
+
 ## Sensor Calibration
 
-### MQ2/MQ9 Gas Sensors
+### MQ2 Gas Sensors
 1. **Preheat Period:** 24-48 hours in clean air for stable readings
 2. **Warmup:** 20-second warmup in each power cycle
 3. **Baseline (R0):** Resistance measured in clean air
 4. **Regular Recalibration:** Monthly in known clean environment
 5. **Temperature Compensation:** Consider ambient temperature effects
 
+```cpp
+// Auto-calibration example
+int initial_adc = analogRead(MQ2_PIN);
+float initial_Rs = calculateResistance(initial_adc);
+R0_LPG = R0_METHANE = R0_CO = initial_Rs; // Rough baseline
+```
+
 ### DS18B20 Temperature Sensor
 - ✅ **Factory calibrated** - no user calibration needed
 - ✅ **±0.5°C accuracy** from -10°C to +85°C
 - ✅ **Automatic error detection** for disconnected sensors
+
+### DHT22 Temperature & Humidity Sensor
+- ✅ **Factory calibrated** - no user calibration needed
+- ✅ **±0.5°C temperature accuracy**
+- ✅ **±2-5% humidity accuracy**
+- ✅ **Built-in checksum validation**
 
 ## Power Consumption
 
@@ -836,97 +809,190 @@ Each example includes corresponding TTN payload decoder functions that provide:
 |-----------|--------|-------|-------|
 | **Arduino Uno** | ~20mA | ~0.03mA | With low-power library |
 | **Dragino Shield** | ~120mA (TX) | ~1.5μA | During transmission |
-| **MQ2/MQ9 Sensor** | ~150mA | N/A | Continuous heating |
+| **MQ2 Gas Sensor** | ~150mA | N/A | Continuous heating |
 | **DS18B20** | ~1.5mA | ~1μA | During conversion |
+| **DHT22** | ~2.5mA | ~15μA | During measurement |
 
 ### Battery Life Estimation
-- **With gas sensors:** 1-3 days (due to continuous heating)
-- **Temperature only:** 6-12 months (with proper low-power management)
-- **Recommendation:** Use external power for gas sensor applications
+| Configuration | Estimated Battery Life | Power Source |
+|---------------|----------------------|--------------|
+| **Gas sensors (MQ2)** | 1-3 days | USB/Wall adapter recommended |
+| **Temperature only** | 6-12 months | Battery feasible |
+| **Temperature + humidity** | 4-8 months | Battery feasible |
+| **Professional SX12XX** | 8-15 months | Optimized for battery |
 
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Compilation Errors
-**Problem:** `fatal error: lmic.h: No such file or directory`
-**Solution:** Install MCCI LoRaWAN LMIC library via Library Manager
-
-#### 2. Memory Issues on Arduino Uno
-**Problem:** Sketch too large for memory
-**Solution:** Use raw sensor examples instead of calculated versions
-
-#### 3. No Temperature Reading
-**Problem:** DS18B20 returns -127°C or 85°C
-**Solution:** 
-- Check 4.7kΩ pullup resistor
-- Verify wiring (VCC, GND, DATA to pin 4)
-- Test with OneWire scanner example
-
-#### 4. No Gas Detection
-**Problem:** MQ2/MQ9 always shows same values
-**Solution:**
-- Ensure 20-second warmup minimum
-- Check 5V power supply (gas sensors need 5V)
-- Verify analog pin connections (A0 for MQ2, A1 for MQ9)
-- Allow 24-48 hour preheating for accurate readings
-
-#### 5. LoRa Transmission Failed
-**Problem:** No packets received at gateway
-**Solution:**
-- Verify TTN credentials (DevAddr, NwkSKey, AppSKey)
-- Check antenna connection
-- Ensure correct regional frequency (EU868/US915)
-- Verify pin mapping matches your hardware
-
-#### 6. High Memory Usage Warning
-**Problem:** "Low memory available, stability problems may occur"
-**Solution:** 
-- Use raw sensor examples
-- Remove unnecessary libraries
-- Reduce string constants
-- Consider Arduino Mega for complex projects
-
-### Debug Tips
-1. **Enable Serial Monitor** at 115200 baud for detailed logging
-2. **Check sensor readings** before transmission
-3. **Verify payload format** in hex output
-4. **Monitor TTN console** for received packets
-5. **Use interactive sender** for communication testing
+### **Power Optimization Tips:**
+- 🔋 **External power** recommended for gas sensors
+- 💤 **Low power modes** essential for battery operation
+- ⏰ **Longer intervals** save significant power
+- 🔌 **DHT22 power control** can be switched on/off
 
 ## Environmental Applications
 
 ### Indoor Air Quality Monitoring
-- **Kitchen safety:** LPG leak detection
-- **Garage monitoring:** CO from vehicles
-- **Industrial spaces:** Multiple gas monitoring
-- **Home automation:** Temperature-based control
+- **Kitchen safety:** LPG leak detection with immediate alerts
+- **Garage monitoring:** CO from vehicles and generators
+- **Industrial spaces:** Multiple gas monitoring with safety systems
+- **Home automation:** Temperature-based HVAC control
 
 ### Safety Systems
 - **Gas leak alarms:** Immediate alerts for dangerous levels
 - **HVAC integration:** Automatic ventilation control
 - **Emergency response:** Remote monitoring capabilities
-- **Data logging:** Historical trend analysis
+- **Data logging:** Historical trend analysis and compliance
 
 ### Agricultural Applications
-- **Greenhouse monitoring:** Temperature and CO₂ levels
-- **Livestock areas:** Methane monitoring
+- **Greenhouse monitoring:** Temperature, humidity, and CO₂ levels
+- **Livestock areas:** Methane and ammonia monitoring
 - **Storage facilities:** Gas buildup prevention
-- **Cold storage:** Temperature monitoring
+- **Cold storage:** Temperature monitoring with alerts
 
-## License and Credits
+### Research and Development
+- **Environmental studies:** Long-term air quality data collection
+- **Indoor air quality research:** Correlation studies
+- **Sensor network testing:** Multi-node deployments
+- **Gateway development:** Custom protocol implementation
 
-This collection is based on:
-- **MCCI LoRaWAN LMIC library** - MCCI Corporation
-- **Arduino Core libraries** - Arduino LLC
-- **OneWire & DallasTemperature** - Open source community
-- **Gas sensor formulas** - Based on manufacturer datasheets and community research
+## Gateway Integration
 
-## Support and Community
+### Low-Cost LoRa Gateway (SX12XX Examples)
+The SX12XX examples are compatible with **Congduc Pham's Low-Cost LoRa Gateway**:
 
-For questions and support:
+```bash
+# Example gateway output
+2025-01-02T10:30:15.123456> getting pkt from radio(466 bytes to read)
+2025-01-02T10:30:15.124567> 
+--> LoRa RX info: SNR=8 RSSI=-45
+--> src=14 seq=42 len=89 SNR=8 RSSI=-45
+--> \!TC/23.45/LPG/250.1/CH4/180.3/CO/45.2/H2/120.5/ALC/85.7/ADC/345
+--> post-processing received data
+```
+
+### **Gateway Features:**
+- ✅ **Automatic parsing** of sensor data format
+- ✅ **Cloud integration** (ThingSpeak, TTN, custom)
+- ✅ **Web interface** for monitoring
+- ✅ **Data logging** and visualization
+- ✅ **Alert systems** via email/SMS
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. **Compilation Errors**
+**Problem:** `fatal error: lmic.h: No such file or directory`  
+**Solution:** Install MCCI LoRaWAN LMIC library via Library Manager
+
+**Problem:** `SX127XLT.h: No such file or directory`  
+**Solution:** Install SX12XX-LoRa library by Stuart Robinson
+
+#### 2. **Memory Issues on Arduino Uno**
+**Problem:** Sketch too large for memory  
+**Solution:** 
+- Use raw sensor examples (MCCI_ttn_Enhanced_Raw_*)
+- Choose SX12XX library over enhanced MCCI examples
+- Remove unused libraries
+
+#### 3. **No Temperature Reading**
+**Problem:** DS18B20 returns -127°C or 85°C  
+**Solution:** 
+- Check 4.7kΩ pullup resistor between DATA and VCC
+- Verify wiring (VCC→5V, GND→GND, DATA→D4)
+- Test with OneWire scanner example
+- Ensure sensor is genuine DS18B20
+
+#### 4. **No Gas Detection**
+**Problem:** MQ2 always shows same values  
+**Solution:**
+- Ensure 20-second warmup minimum
+- Check 5V power supply (gas sensors require 5V)
+- Verify analog pin connections (A0 for MQ2)
+- Allow 24-48 hour preheating for accurate readings
+- Test in different gas environments
+
+#### 5. **LoRa Transmission Failed**
+**Problem:** No packets received at gateway/TTN  
+**Solution:**
+- **MCCI LMIC:** Verify TTN credentials (DevAddr, NwkSKey, AppSKey)
+- **SX12XX:** Check gateway address and frequency settings
+- Verify antenna connection and placement
+- Ensure correct regional frequency (EU868/US915)
+- Check pin mapping matches your hardware
+- Test with ping-pong example first
+
+#### 6. **TTN Decoder Errors**
+**Problem:** Payload decode fails in TTN console  
+**Solution:**
+- Copy decoder function exactly from payload.txt
+- Verify payload length matches expected bytes
+- Check endianness (MSB vs LSB) in decoder
+- Test decoder with sample hex values
+
+#### 7. **Power Consumption Too High**
+**Problem:** Battery drains quickly  
+**Solution:**
+- Enable low power modes (`#define LOW_POWER`)
+- Increase transmission intervals
+- Remove gas sensors for battery operation
+- Use external power for continuous monitoring
+
+#### 8. **Intermittent Sensor Readings**
+**Problem:** Sensors work sometimes, not others  
+**Solution:**
+- Check loose connections
+- Verify power supply stability (especially 5V for gas sensors)
+- Add delay between sensor readings
+- Implement error handling and retry logic
+
+### Debug Tips
+1. **Enable Serial Monitor** at correct baud rate (115200 for most examples)
+2. **Check sensor readings** individually before LoRa transmission
+3. **Verify payload format** in hex output matches expected structure
+4. **Monitor TTN console** or gateway logs for received packets
+5. **Use ping-pong examples** for basic communication testing
+6. **Test sensors separately** before combining
+7. **Verify library versions** match requirements
+
+### Getting Help
 - **Arduino Forum:** https://forum.arduino.cc/
 - **TTN Community:** https://www.thethingsnetwork.org/community/
 - **MCCI LMIC Issues:** https://github.com/mcci-catena/arduino-lmic/issues
+- **SX12XX Library:** https://github.com/StuartsProjects/SX12XX-LoRa
 
-**Remember:** Always test your gas detection systems thoroughly and never rely solely on DIY sensors for life-safety applications. Commercial certified equipment should be used for critical safety systems.
+## License and Credits
+
+This collection builds upon excellent open-source work:
+
+### **Libraries Used:**
+- **MCCI LoRaWAN LMIC library** - MCCI Corporation
+- **SX12XX-LoRa library** - Stuart Robinson  
+- **Arduino Core libraries** - Arduino LLC
+- **OneWire & DallasTemperature** - Jim Studt, Miles Burton
+- **DHT sensor library** - Adafruit Industries
+
+### **Gateway Compatibility:**
+- **Low-Cost LoRa Gateway** - Congduc Pham (University of Pau, France)
+
+### **Gas Sensor Formulas:**
+- Based on manufacturer datasheets and community research
+- Empirical formulas derived from sensor characterization
+
+## Important Safety Notice
+
+⚠️ **SAFETY DISCLAIMER:** These examples are for **educational and development purposes**. While they provide useful gas detection capabilities, they should **NOT** be used as the sole safety system in critical applications.
+
+### **For Life-Safety Applications:**
+- ✅ Use **certified commercial gas detectors**
+- ✅ Install **multiple redundant sensors**
+- ✅ Include **professional monitoring services**
+- ✅ Follow **local safety codes and regulations**
+- ✅ Regular **professional calibration and maintenance**
+
+### **Recommended Use Cases:**
+- 🧪 **Educational projects** and learning
+- 📊 **Environmental monitoring** and data collection
+- 🏠 **Home automation** and convenience
+- 🔬 **Research and development**
+- 📈 **Trend analysis** and early warning systems
+
+**Always test thoroughly and understand the limitations of DIY sensors!**

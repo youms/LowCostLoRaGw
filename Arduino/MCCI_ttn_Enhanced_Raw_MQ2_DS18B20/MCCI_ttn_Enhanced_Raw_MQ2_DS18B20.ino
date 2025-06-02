@@ -55,27 +55,129 @@ float getResistance(int adc) {
     return (VCC - vout) * RL_VALUE / vout;
 }
 
+void printHex2(unsigned v) {
+    v &= 0xff;
+    if (v < 16)
+        Serial.print('0');
+    Serial.print(v, HEX);
+}
+
 void onEvent (ev_t ev) {
+    Serial.print(os_getTime());
+    Serial.print(": ");
     switch(ev) {
-        case EV_TXCOMPLETE:
-            Serial.println(F("TX_OK"));
-            if (LMIC.dataLen) {
-                Serial.print(F("RX:"));
-                Serial.println(LMIC.dataLen);
+        case EV_SCAN_TIMEOUT:
+            Serial.println(F("EV_SCAN_TIMEOUT"));
+            break;
+        case EV_BEACON_FOUND:
+            Serial.println(F("EV_BEACON_FOUND"));
+            break;
+        case EV_BEACON_MISSED:
+            Serial.println(F("EV_BEACON_MISSED"));
+            break;
+        case EV_BEACON_TRACKED:
+            Serial.println(F("EV_BEACON_TRACKED"));
+            break;
+        case EV_JOINING:
+            Serial.println(F("EV_JOINING"));
+            break;
+        case EV_JOINED:
+            Serial.println(F("EV_JOINED"));
+            {
+              u4_t netid = 0;
+              devaddr_t devaddr = 0;
+              u1_t nwkKey[16];
+              u1_t artKey[16];
+              LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
+              Serial.print("netid: ");
+              Serial.println(netid, DEC);
+              Serial.print("devaddr: ");
+              Serial.println(devaddr, HEX);
+              Serial.print("AppSKey: ");
+              for (size_t i=0; i<sizeof(artKey); ++i) {
+                if (i != 0)
+                  Serial.print("-");
+                printHex2(artKey[i]);
+              }
+              Serial.println("");
+              Serial.print("NwkSKey: ");
+              for (size_t i=0; i<sizeof(nwkKey); ++i) {
+                      if (i != 0)
+                              Serial.print("-");
+                      printHex2(nwkKey[i]);
+              }
+              Serial.println();
             }
+            // Disable link check validation (automatically enabled
+            // during join, but because slow data rates change max TX
+            // size, we don't use it in this example.
+            LMIC_setLinkCheckMode(0);
+            break;
+        case EV_JOIN_FAILED:
+            Serial.println(F("EV_JOIN_FAILED"));
+            break;
+        case EV_REJOIN_FAILED:
+            Serial.println(F("EV_REJOIN_FAILED"));
+            break;
+        case EV_TXCOMPLETE:
+            Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
+            if (LMIC.txrxFlags & TXRX_ACK)
+              Serial.println(F("Received ack"));
+            if (LMIC.dataLen) {
+              Serial.print(F("Received "));
+              Serial.print(LMIC.dataLen);
+              Serial.println(F(" bytes of payload"));
+              Serial.print(F("Downlink data: "));
+              for (int i = 0; i < LMIC.dataLen; i++) {
+                if (LMIC.frame[LMIC.dataBeg + i] < 0x10) {
+                  Serial.print(F("0"));
+                }
+                Serial.print(LMIC.frame[LMIC.dataBeg + i], HEX);
+                Serial.print(" ");
+              }
+              Serial.println();
+            }
+            // Schedule next transmission
             os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
             break;
+        case EV_LOST_TSYNC:
+            Serial.println(F("EV_LOST_TSYNC"));
+            break;
+        case EV_RESET:
+            Serial.println(F("EV_RESET"));
+            break;
+        case EV_RXCOMPLETE:
+            // data received in ping slot
+            Serial.println(F("EV_RXCOMPLETE"));
+            break;
+        case EV_LINK_DEAD:
+            Serial.println(F("EV_LINK_DEAD"));
+            break;
+        case EV_LINK_ALIVE:
+            Serial.println(F("EV_LINK_ALIVE"));
+            break;
         case EV_TXSTART:
-            Serial.println(F("TX_START"));
+            Serial.println(F("EV_TXSTART"));
+            break;
+        case EV_TXCANCELED:
+            Serial.println(F("EV_TXCANCELED"));
+            break;
+        case EV_RXSTART:
+            /* do not print anything -- it wrecks timing */
+            break;
+        case EV_JOIN_TXCOMPLETE:
+            Serial.println(F("EV_JOIN_TXCOMPLETE: no JoinAccept"));
             break;
         default:
-            break; // Minimize serial output to save memory
+            Serial.print(F("Unknown event: "));
+            Serial.println((unsigned) ev);
+            break;
     }
 }
 
 void do_send(osjob_t* j){
     if (LMIC.opmode & OP_TXRXPEND) {
-        Serial.println(F("Busy"));
+        Serial.println(F("OP_TXRXPEND, not sending"));
         return;
     }
     
@@ -141,7 +243,7 @@ void do_send(osjob_t* j){
 
 void setup() {
     Serial.begin(9600);
-    Serial.println(F("MQ2+DS18B20 Raw"));
+    Serial.println(F("MQ2+DS18B20 Raw with Complete LoRa Event Handling"));
     
     // Initialize sensors
     sensors.begin();
@@ -182,13 +284,73 @@ void setup() {
     #endif
 
     #if defined(CFG_eu868)
-    LMIC_setupChannel(0, 868100000, DR_RANGE_MAP(DR_SF12, DR_SF7), BAND_CENTI);
+    // Set up the channels used by the Things Network, which corresponds
+    // to the defaults of most gateways. Without this, only three base
+    // channels from the LoRaWAN specification are used, which certainly
+    // works, so it is good for debugging, but can overload those
+    // frequencies, so be sure to configure the full frequency range of
+    // your network here (unless your network autoconfigures them).
+    // Setting up channels should happen after LMIC_setSession, as that
+    // configures the minimal channel set. The LMIC doesn't let you change
+    // the three basic settings, but we show them here.
+    LMIC_setupChannel(0, 868100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(1, 868300000, DR_RANGE_MAP(DR_SF12, DR_SF7B), BAND_CENTI);      // g-band
+    LMIC_setupChannel(2, 868500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(3, 867100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(4, 867300000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(5, 867500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(6, 867700000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(7, 867900000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+    LMIC_setupChannel(8, 868800000, DR_RANGE_MAP(DR_FSK,  DR_FSK),  BAND_MILLI);      // g2-band
+    // TTN defines an additional channel at 869.525Mhz using SF9 for class B
+    // devices' ping slots. LMIC does not have an easy way to define set this
+    // frequency and support for class B is spotty and untested, so this
+    // frequency is not configured here.
     #elif defined(CFG_us915) || defined(CFG_au915)
+    // NA-US and AU channels 0-71 are configured automatically
+    // but only one group of 8 should (a subband) should be active
+    // TTN recommends the second sub band, 1 in a zero based count.
+    // https://github.com/TheThingsNetwork/gateway-conf/blob/master/US-global_conf.json
     LMIC_selectSubBand(1);
+    #elif defined(CFG_as923)
+    // Set up the channels used in your country. Only two are defined by default,
+    // and they cannot be changed.  Use BAND_CENTI to indicate 1% duty cycle.
+    // LMIC_setupChannel(0, 923200000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);
+    // LMIC_setupChannel(1, 923400000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);
+
+    // ... extra definitions for channels 2..n here
+    #elif defined(CFG_kr920)
+    // Set up the channels used in your country. Three are defined by default,
+    // and they cannot be changed. Duty cycle doesn't matter, but is conventionally
+    // BAND_MILLI.
+    // LMIC_setupChannel(0, 922100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_MILLI);
+    // LMIC_setupChannel(1, 922300000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_MILLI);
+    // LMIC_setupChannel(2, 922500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_MILLI);
+
+    // ... extra definitions for channels 3..n here.
+    #elif defined(CFG_in866)
+    // Set up the channels used in your country. Three are defined by default,
+    // and they cannot be changed. Duty cycle doesn't matter, but is conventionally
+    // BAND_MILLI.
+    // LMIC_setupChannel(0, 865062500, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_MILLI);
+    // LMIC_setupChannel(1, 865402500, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_MILLI);
+    // LMIC_setupChannel(2, 865985000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_MILLI);
+
+    // ... extra definitions for channels 3..n here.
+    #else
+    # error Region not supported
     #endif
 
+    // Disable link check validation (automatically enabled
+    // during join, but because slow data rates change max TX
+    // size, we don't use it in this example.
     LMIC_setLinkCheckMode(0);
+
+    // TTN uses SF9 for its RX2 window.
     LMIC.dn2Dr = DR_SF9;
+
+    // Set data rate and transmit power for uplink (note this may be overridden
+    // by the radio's default values) 
     LMIC_setDrTxpow(DR_SF7, 14);
 
     Serial.println(F("Starting..."));

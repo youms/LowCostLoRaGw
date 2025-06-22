@@ -147,7 +147,7 @@ End by C. Pham - Oct. 2020
 //#define SX127XDEBUG2               //enable level 2 debug messages
 //#define SX127XDEBUG3               //enable level 3 debug messages
 #define SX127XDEBUG_TEST           //enable test debug messages
-#define SX127XDEBUGACK               //enable ack transaction debug messages
+#define SX127XDEBUGACK             //enable ack transaction debug messages
 #define SX127XDEBUGRTS
 //#define SX127XDEBUGCAD
 //#define DEBUGPHANTOM               //used to set bebuging for Phantom packets
@@ -1680,6 +1680,11 @@ int8_t SX127XLT::readPacketRSSI()
 #ifdef SX127XDEBUG1
   PRINTLN_CSTSTR("readPacketRSSI()");
 #endif
+   
+    if (_RSSICached) {
+        _RSSICached = false;  // Clear flag after use
+        return _CachedPacketRSSI; 
+    }
 
   _PacketRSSI = readRegister(REG_PKTRSSIVALUE);
   
@@ -1737,6 +1742,12 @@ uint8_t SX127XLT::readPacketSNR()
   PRINTLN_CSTSTR("readPacketSNR()");
 #endif
 
+    if (_SNRCached) {
+        _SNRCached = false;  // Clear flag after use
+        return _CachedPacketSNR;  // Return pre-calculated value
+    }
+
+  //read the SNR value from the packet, this is in dB, and can be negative
   uint8_t regdata;
   regdata = readRegister(REG_PKTSNRVALUE);
 
@@ -2570,13 +2581,18 @@ uint8_t SX127XLT::receiveAddressed(uint8_t *rxbuffer, uint8_t size, uint32_t rxt
   /**************************************************************************
 	Added by C. Pham - Oct. 2020
   **************************************************************************/ 
-  
+
+  _CachedPacketRSSI = readPacketRSSI();  // This does all the complex calculations
+  _RSSICached = true;               // Flag that we have cached values
+  _CachedPacketSNR = readPacketSNR();    // This handles sign conversion properly
+  _SNRCached = true;               // Flag that we have cached values
+
   //sender request an ACK
 	if ( (_RXPacketType & PKT_FLAG_ACK_REQ) && (_RXDestination==_DevAddr) ) {
 		uint8_t TXAckPacketL;
 		const uint8_t TXBUFFER_SIZE=3;
 		uint8_t TXBUFFER[TXBUFFER_SIZE];
-		
+
 #ifdef SX127XDEBUGACK
   	PRINT_CSTSTR("ACK requested by ");
   	PRINTLN_VALUE("%d", _RXSource);

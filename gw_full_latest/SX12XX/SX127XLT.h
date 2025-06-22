@@ -328,6 +328,10 @@ class SX127XLT
     uint8_t _AckStatus;
     int8_t _PacketSNRinACK;
     void (*_lowPowerFctPtr)(unsigned long);    
+    int8_t _CachedPacketRSSI;
+    int8_t _CachedPacketSNR;
+    bool _SNRCached = false;
+    bool _RSSICached = false;
     /**************************************************************************
       End by C. Pham - Oct. 2020
     **************************************************************************/

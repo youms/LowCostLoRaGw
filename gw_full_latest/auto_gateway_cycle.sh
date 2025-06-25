@@ -5,9 +5,9 @@
 # Matches Arduino Enhanced_Lora_DS18B20_SX12XXX_Characterization.ino
 # 
 # This script cycles through the same 9 parameter combinations as the Arduino:
-# - MIN: SF7, BW500, CR4/5 with payload sizes 20,50,80
-# - MEAN: SF9, BW500, CR4/5 with payload sizes 20,50,80  
-# - MAX: SF12, BW500, CR4/5 with payload sizes 20,50,80
+# - MIN: SF7, BW125, CR4/5 with payload sizes 20,50,80
+# - MEAN: SF9, BW125, CR4/5 with payload sizes 20,50,80  
+# - MAX: SF12, BW125, CR4/5 with payload sizes 20,50,80
 #
 # Each configuration runs for 20 minutes to match Arduino parameter changes
 ################################################################################
@@ -61,7 +61,7 @@ start_gateway() {
     local config_name=$2
     local log_suffix=$3
     
-    log_message "Starting gateway: $config_name (SF$sf, BW500, CR5)"
+    log_message "Starting gateway: $config_name (SF$sf, BW125, CR5)"
     
     # Create timestamped log file for this configuration
     local timestamp=$(date '+%Y%m%d_%H%M%S')
@@ -69,7 +69,7 @@ start_gateway() {
     
     # Start the gateway with specified parameters
     # Use nohup and redirect to log file, run in background
-    nohup sudo ./lora_gateway --bw 500 --sf "$sf" --cr 5 --freq "$FREQ" 2>&1 | \
+    nohup sudo ./lora_gateway --bw 125 --sf "$sf" --cr 5 --freq "$FREQ" 2>&1 | \
     python ./post_processing_gw.py 2>&1 | \
     python ./log_gw.py 2>&1 | \
     tee "$log_file" &
@@ -109,15 +109,15 @@ check_gateway_status() {
 
 # Array of configurations matching Arduino code exactly
 declare -a configs=(
-    "7:MIN-SF7-BW500-T20:sf7_t20"
-    "7:MIN-SF7-BW500-T50:sf7_t50" 
-    "7:MIN-SF7-BW500-T80:sf7_t80"
-    "9:MEAN-SF9-BW500-T20:sf9_t20"
-    "9:MEAN-SF9-BW500-T50:sf9_t50"
-    "9:MEAN-SF9-BW500-T80:sf9_t80"
-    "12:MAX-SF12-BW500-T20:sf12_t20"
-    "12:MAX-SF12-BW500-T50:sf12_t50"
-    "12:MAX-SF12-BW500-T80:sf12_t80"
+    "7:MIN-SF7-BW125-T20:sf7_t20"
+    "7:MIN-SF7-BW125-T50:sf7_t50" 
+    "7:MIN-SF7-BW125-T80:sf7_t80"
+    "9:MEAN-SF9-BW125-T20:sf9_t20"
+    "9:MEAN-SF9-BW125-T50:sf9_t50"
+    "9:MEAN-SF9-BW125-T80:sf9_t80"
+    "12:MAX-SF12-BW125-T20:sf12_t20"
+    "12:MAX-SF12-BW125-T50:sf12_t50"
+    "12:MAX-SF12-BW125-T80:sf12_t80"
 )
 
 # Signal handlers for graceful shutdown

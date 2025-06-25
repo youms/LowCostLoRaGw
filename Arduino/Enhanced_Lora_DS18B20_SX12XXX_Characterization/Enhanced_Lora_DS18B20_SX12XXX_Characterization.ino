@@ -4,9 +4,9 @@
  *  Using SX12XX library for LoRa communication
  *  
  *  Changes transmit parameters autonomously every 20 minutes:
- *  - MIN: SF7, BW500, CR4/5 with T=20,50,80
- *  - MEAN: SF9, BW500, CR4/5 with T=20,50,80  
- *  - MAX: SF12, BW500, CR4/5 with T=20,50,80
+ *  - MIN: SF7, BW125, CR4/5 with T=20,50,80
+ *  - MEAN: SF9, BW125, CR4/5 with T=20,50,80  
+ *  - MAX: SF12, BW125, CR4/5 with T=20,50,80
  *  
  *  Hardware connections:
  *  - DS18B20 data pin -> Arduino Pin 3
@@ -73,32 +73,32 @@ struct NetworkTestParams {
 
 // Constants are different for different SX chips
 #ifdef SX126X
-  #define BW_500_VAL  LORA_BW_500    // 6 for SX126X
+  #define BW_125_VAL  LORA_BW_125    // 6 for SX126X
   #define CR_4_5_VAL  LORA_CR_4_5    // 0x01 for SX126X
 #endif
 #ifdef SX127X
-  #define BW_500_VAL  LORA_BW_500    // 144 for SX127X 
+  #define BW_125_VAL  LORA_BW_125    // 144 for SX127X 
   #define CR_4_5_VAL  LORA_CR_4_5    // 0x02 for SX127X
 #endif
 #ifdef SX128X
-  #define BW_500_VAL  LORA_BW_0800   // 0x18 closest to 500kHz for SX128X (812.5kHz)
+  #define BW_125_VAL  LORA_BW_0200   // 0x18 closest to 500kHz for SX128X (812.5kHz)
   #define CR_4_5_VAL  LORA_CR_4_5    // 0x01 for SX128X
 #endif
 
 // Test parameter sets (9 configurations total)
 const NetworkTestParams testParams[] = {
   // MIN configurations
-  {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW500-T20"},
-  {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 50, "MIN-SF7-BW500-T50"},
-  {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 80, "MIN-SF7-BW500-T80"},
+  {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW125-T20"},
+  {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 50, "MIN-SF7-BW125-T50"},
+  {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 80, "MIN-SF7-BW125-T80"},
   // MEAN configurations  
-  {LORA_SF9, BW_500_VAL, CR_4_5_VAL, 20, "MEAN-SF9-BW500-T20"},
-  {LORA_SF9, BW_500_VAL, CR_4_5_VAL, 50, "MEAN-SF9-BW500-T50"},
-  {LORA_SF9, BW_500_VAL, CR_4_5_VAL, 80, "MEAN-SF9-BW500-T80"},
+  {LORA_SF9, BW_125_VAL, CR_4_5_VAL, 20, "MEAN-SF9-BW125-T20"},
+  {LORA_SF9, BW_125_VAL, CR_4_5_VAL, 50, "MEAN-SF9-BW125-T50"},
+  {LORA_SF9, BW_125_VAL, CR_4_5_VAL, 80, "MEAN-SF9-BW125-T80"},
   // MAX configurations
-  {LORA_SF12, BW_500_VAL, CR_4_5_VAL, 20, "MAX-SF12-BW500-T20"},
-  {LORA_SF12, BW_500_VAL, CR_4_5_VAL, 50, "MAX-SF12-BW500-T50"},
-  {LORA_SF12, BW_500_VAL, CR_4_5_VAL, 80, "MAX-SF12-BW500-T80"}
+  {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 20, "MAX-SF12-BW125-T20"},
+  {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 50, "MAX-SF12-BW125-T50"},
+  {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 80, "MAX-SF12-BW125-T80"}
 };
 
 const uint8_t NUM_TEST_PARAMS = sizeof(testParams) / sizeof(testParams[0]);
@@ -412,7 +412,7 @@ void loop()
     if (tempC == DEVICE_DISCONNECTED_C) {
       PRINTLN_CSTSTR("Error: Could not read temperature data");
       sensorError = true;
-      nextTransmissionTime = millis() + 30000; // Try again in 30 seconds
+      nextTransmissionTime = millis() + 10000; // Try again in 30 seconds
       return;
     }
     
@@ -510,7 +510,7 @@ void loop()
       }
       
       // Schedule next transmission (every 15 seconds for characterization)
-      nextTransmissionTime = millis() + 15000;
+      nextTransmissionTime = millis() + 5000;
     }
   }
   

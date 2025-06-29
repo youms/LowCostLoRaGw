@@ -60,7 +60,7 @@ SX128XLT LT;
 
 // Configuration
 const uint8_t node_addr = 8;                        // Sensor node address
-const uint8_t idlePeriodInMin = 20;                  // 20 minutes between parameter changes
+const uint8_t idlePeriodInMin = 5;                  // 20 minutes between parameter changes
 
 // Network characterization parameters structure
 struct NetworkTestParams {
@@ -78,6 +78,7 @@ struct NetworkTestParams {
 #endif
 #ifdef SX127X
   #define BW_125_VAL  LORA_BW_125    // 144 for SX127X 
+  #define BW_500_VAL  LORA_BW_500
   #define CR_4_5_VAL  LORA_CR_4_5    // 0x02 for SX127X
 #endif
 #ifdef SX128X
@@ -89,14 +90,17 @@ struct NetworkTestParams {
 const NetworkTestParams testParams[] = {
   // MIN configurations
   {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW125-T20"},
+  {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW500-T20"},
   {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 50, "MIN-SF7-BW125-T50"},
   {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 80, "MIN-SF7-BW125-T80"},
   // MEAN configurations  
   {LORA_SF9, BW_125_VAL, CR_4_5_VAL, 20, "MEAN-SF9-BW125-T20"},
+  {LORA_SF9, BW_500_VAL, CR_4_5_VAL, 20, "MIN-SF9-BW500-T20"},
   {LORA_SF9, BW_125_VAL, CR_4_5_VAL, 50, "MEAN-SF9-BW125-T50"},
   {LORA_SF9, BW_125_VAL, CR_4_5_VAL, 80, "MEAN-SF9-BW125-T80"},
   // MAX configurations
   {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 20, "MAX-SF12-BW125-T20"},
+  {LORA_SF12, BW_500_VAL, CR_4_5_VAL, 20, "MIN-SF9-BW500-T20"},
   {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 50, "MAX-SF12-BW125-T50"},
   {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 80, "MAX-SF12-BW125-T80"}
 };
@@ -186,7 +190,14 @@ void updateLoRaParams(const NetworkTestParams& params) {
     case LORA_SF12: PRINTLN_CSTSTR("12"); break;
   }
   
-  PRINT_CSTSTR("BW: 500kHz, CR: 4/5, Target payload: ");
+//  PRINT_CSTSTR("BW: 500kHz, CR: 4/5, Target payload: ");
+  PRINT_CSTSTR("BW: ");
+  switch(params.bw) {
+    case LORA_BW_125:  PRINTLN_CSTSTR("125KHz"); break;
+    case LORA_BW_500:  PRINTLN_CSTSTR("500KHz"); break;
+  }
+
+  PRINT_CSTSTR("CR: 4/5, Target payload: ");
   PRINT_VALUE("%d", params.payloadSize);
   PRINTLN_CSTSTR(" bytes");
 }
@@ -285,7 +296,7 @@ void setup()
   while (!Serial);
   
   PRINTLN_CSTSTR("Enhanced DS18B20 LoRa Network Characterization");
-  PRINTLN_CSTSTR("Autonomous parameter changes every 20 minutes");
+  PRINTLN_CSTSTR("Autonomous parameter changes every 50 minutes");
   
   SPI.begin();
 
@@ -342,6 +353,7 @@ void setup()
   }
 #endif
 
+
   PRINT_CSTSTR("Setting Power: ");
   PRINTLN_VALUE("%d", MAX_DBM); 
 
@@ -365,7 +377,7 @@ void setup()
   // Initialize with first parameter set
   updateLoRaParams(testParams[currentParamIndex]);
   lastParamChangeTime = millis();
-  nextTransmissionTime = millis() + 10000; // First transmission in 10 seconds
+  nextTransmissionTime = millis() + 5000; // First transmission in 15 seconds
   
   delay(500);
 }
@@ -390,6 +402,7 @@ void loop()
 
   // Check if it's time to change parameters (every 20 minutes)
   if (millis() - lastParamChangeTime >= (unsigned long)idlePeriodInMin * 60 * 1000) {
+    delay(7000);
     cycleToNextParams();
   }
 
@@ -398,24 +411,30 @@ void loop()
     
     // Read temperature from DS18B20 sensor
     PRINTLN_CSTSTR("Reading temperature...");
+    tempC = 24.21;
     
     // Take multiple readings for accuracy
-    tempC = 0.0;
+ /*   tempC = 0.0;
     for (int i=0; i<5; i++) {
       sensors.requestTemperatures(); 
       tempC += sensors.getTempCByIndex(0);
       delay(100);
     }
     tempC = tempC/5;
+ 
+    sensors.requestTemperatures();
+    tempC = sensors.getTempCByIndex(0);   
     
     // Check if reading was successful
     if (tempC == DEVICE_DISCONNECTED_C) {
       PRINTLN_CSTSTR("Error: Could not read temperature data");
-      sensorError = true;
-      nextTransmissionTime = millis() + 10000; // Try again in 30 seconds
+    //  sensorError = true;
+    //  nextTransmissionTime = millis() + 30000; // Try again in 30 seconds
+      tempC = 24.21;
       return;
     }
-    
+   */
+
     // Only transmit if we have valid sensor data
     if (!sensorError) {
       // Display temperature reading
@@ -450,7 +469,7 @@ void loop()
       PRINTLN;
       
       // Check channel before transmission
-      LT.CarrierSense();
+       LT.CarrierSense();
       
       uint8_t p_type = PKT_TYPE_DATA;
       
@@ -510,7 +529,8 @@ void loop()
       }
       
       // Schedule next transmission (every 15 seconds for characterization)
-      nextTransmissionTime = millis() + 5000;
+      nextTransmissionTime = millis() + 15000;
+      return;
     }
   }
   

@@ -4,17 +4,17 @@
 # Automatic Gateway Configuration Cycling Script
 # Matches Arduino Enhanced_Lora_DS18B20_SX12XXX_Characterization.ino
 # 
-# This script cycles through the same 9 parameter combinations as the Arduino:
-# - MIN: SF7, BW125, CR4/5 with payload sizes 20,50,80
-# - MEAN: SF9, BW125, CR4/5 with payload sizes 20,50,80  
-# - MAX: SF12, BW125, CR4/5 with payload sizes 20,50,80
+# This script cycles through the same 12 parameter combinations as the Arduino:
+# - MIN: SF7, BW125, CR4/5 with payload sizes 20,50,80 + SF7, BW500, CR4/5 with payload size 20
+# - MEAN: SF9, BW125, CR4/5 with payload sizes 20,50,80 + SF9, BW500, CR4/5 with payload size 20
+# - MAX: SF12, BW125, CR4/5 with payload sizes 20,50,80 + SF12, BW500, CR4/5 with payload size 20
 #
 # Each configuration runs for 20 minutes to match Arduino parameter changes
 ################################################################################
 
 # Configuration
-FREQ="865.2"           # Frequency in MHz
-CYCLE_TIME=1200        # 20 minutes in seconds (20 * 60)
+FREQ="868.0"           # Frequency in MHz
+CYCLE_TIME=60   #3000        # 20 minutes in seconds (20 * 60)
 LOG_DIR="./characterization_logs"
 BASE_LOG_NAME="network_test"
 
@@ -58,10 +58,11 @@ kill_gateway() {
 # Function to start gateway with specific parameters
 start_gateway() {
     local sf=$1
-    local config_name=$2
-    local log_suffix=$3
+    local bw=$2
+    local config_name=$3
+    local log_suffix=$4
     
-    log_message "Starting gateway: $config_name (SF$sf, BW125, CR5)"
+    log_message "Starting gateway: $config_name (SF$sf, BW$bw, CR5)"
     
     # Create timestamped log file for this configuration
     local timestamp=$(date '+%Y%m%d_%H%M%S')
@@ -69,7 +70,7 @@ start_gateway() {
     
     # Start the gateway with specified parameters
     # Use nohup and redirect to log file, run in background
-    nohup sudo ./lora_gateway --bw 125 --sf "$sf" --cr 5 --freq "$FREQ" 2>&1 | \
+    nohup sudo ./lora_gateway --bw "$bw" --sf "$sf" --cr 5 --freq "$FREQ" 2>&1 | \
     python ./post_processing_gw.py 2>&1 | \
     python ./log_gw.py 2>&1 | \
     tee "$log_file" &
@@ -107,17 +108,20 @@ check_gateway_status() {
     return 0
 }
 
-# Array of configurations matching Arduino code exactly
+# Array of configurations matching Arduino code exactly - FIXED ARRAY
 declare -a configs=(
-    "7:MIN-SF7-BW125-T20:sf7_t20"
-    "7:MIN-SF7-BW125-T50:sf7_t50" 
-    "7:MIN-SF7-BW125-T80:sf7_t80"
-    "9:MEAN-SF9-BW125-T20:sf9_t20"
-    "9:MEAN-SF9-BW125-T50:sf9_t50"
-    "9:MEAN-SF9-BW125-T80:sf9_t80"
-    "12:MAX-SF12-BW125-T20:sf12_t20"
-    "12:MAX-SF12-BW125-T50:sf12_t50"
-    "12:MAX-SF12-BW125-T80:sf12_t80"
+    "7:125:MIN-SF7-BW125-T20:sf7_bw125_t20"
+    "7:500:MIN-SF7-BW500-T20:sf7_bw500_t20"
+    "7:125:MIN-SF7-BW125-T50:sf7_bw125_t50" 
+    "7:125:MIN-SF7-BW125-T80:sf7_bw125_t80"
+    "9:125:MEAN-SF9-BW125-T20:sf9_bw125_t20"
+    "9:500:MEAN-SF9-BW500-T20:sf9_bw500_t20"
+    "9:125:MEAN-SF9-BW125-T50:sf9_bw125_t50"
+    "9:125:MEAN-SF9-BW125-T80:sf9_bw125_t80"
+    "12:125:MAX-SF12-BW125-T20:sf12_bw125_t20"
+    "12:500:MAX-SF12-BW500-T20:sf12_bw500_t20"
+    "12:125:MAX-SF12-BW125-T50:sf12_bw125_t50"
+    "12:125:MAX-SF12-BW125-T80:sf12_bw125_t80"
 )
 
 # Signal handlers for graceful shutdown
@@ -166,8 +170,8 @@ main() {
         log_message "Starting cycle $cycle..."
         
         for config in "${configs[@]}"; do
-            # Parse configuration string
-            IFS=':' read -r sf config_name log_suffix <<< "$config"
+            # Parse configuration string: SF:BW:NAME:LOG_SUFFIX
+            IFS=':' read -r sf bw config_name log_suffix <<< "$config"
             
             config_index=$((config_index + 1))
             
@@ -180,7 +184,7 @@ main() {
             sleep 3
             
             # Start gateway with new configuration
-            start_gateway "$sf" "$config_name" "$log_suffix"
+            start_gateway "$sf" "$bw" "$config_name" "$log_suffix"
             
             # Wait for the cycle time with progress indication
             wait_with_progress $CYCLE_TIME "$config_name"

@@ -75,10 +75,10 @@
 //
 // DEFAULT CONFIGURATION: SF12BW125, no encryption, no LoRaWAN, no downlink
 //
-#define WITH_EEPROM
+//define WITH_EEPROM
 ////////////////////////////
 //add 4-byte AppKey filtering - only for non-LoRaWAN mode
-//#define WITH_APPKEY
+#define WITH_APPKEY
 ////////////////////////////
 //request an ack from gateway - only for non-LoRaWAN mode
 #define WITH_ACK
@@ -87,8 +87,8 @@
 //#define STRING_LIB
 ////////////////////////////
 //#define LOW_POWER
-#define LOW_POWER_HIBERNATE
-#define SHOW_LOW_POWER_CYCLE
+//#define LOW_POWER_HIBERNATE
+//#define SHOW_LOW_POWER_CYCLE
 ////////////////////////////
 //Use LoRaWAN AES-like encryption
 //#define WITH_AES
@@ -106,7 +106,7 @@
 #define INVERTIQ_ON_RX
 ////////////////////////////
 //uncomment to use a customized frequency. TTN plan includes 868.1/868.3/868.5/867.1/867.3/867.5/867.7/867.9 for LoRa
-//#define MY_FREQUENCY 868100000
+#define MY_FREQUENCY 868000000
 //#define MY_FREQUENCY 433170000
 ////////////////////////////
 //when sending to a LoRaWAN gateway (e.g. running util_pkt_logger) but with no native LoRaWAN format, just to set the correct sync word
@@ -224,7 +224,7 @@ uint32_t TXPacketCount=0;
 // AND FLASH IT AGAIN WITHOUT FORCE_DEFAULT_VALUE. THE BOARD WILL 
 // THEN USE THE DEFAULT CONFIGURATION UNTIL NEXT CONFIGURATION.
 
-#define FORCE_DEFAULT_VALUE
+// #define FORCE_DEFAULT_VALUE
 ///////////////////////////////////////////////////////////////////
 
 /*****************************
@@ -835,12 +835,12 @@ void loop(void)
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // change here how the temperature should be computed depending on your sensor type
       //  
-    
+/*    
       for (int i=0; i<5; i++) {
           temp += sensor_getValue();  
           delay(100);
       }
-
+*/
       //
       // 
       // /////////////////////////////////////////////////////////////////////////////////////////////////////////// 
@@ -855,7 +855,7 @@ void loop(void)
       PRINTLN;
 
       // for testing, uncomment if you just want to test, without a real temp sensor plugged
-     // temp = 22.5;
+      temp = 22.5;
       
 #if defined WITH_APPKEY && not defined LORAWAN
       app_key_offset = sizeof(my_appKey);
@@ -882,13 +882,21 @@ void loop(void)
       PRINT_STR("%s",(char*)(message+app_key_offset));
       PRINTLN;
       
-      PRINT_CSTSTR("Real payload size is ");
-      PRINT_VALUE("%d", r_size);
+      PRINT_CSTSTR("Full payload size is ");
+      PRINT_VALUE("%d", r_size + HEADER_SIZE);
       PRINTLN;
 
-      LT.printASCIIPacket(message, r_size);
+      PRINT_CSTSTR("Full Payload sent: ");
+      LT.printASCIIPacket(message, r_size + HEADER_SIZE);
       PRINTLN;
       
+      PRINT_CSTSTR("Real Payload content: ");
+      PRINT_STR("%s",(char*)(message + 
+                            // HEADER_SIZE + 
+                            app_key_offset
+                            ));
+      PRINTLN;
+
       int pl=r_size+app_key_offset;
 
       uint8_t p_type=PKT_TYPE_DATA;
@@ -1035,7 +1043,7 @@ void loop(void)
           PRINTLN;
             
           // wait for incoming packets
-          RXPacketL = LT.receive(message, sizeof(message), 850, WAIT_RX);
+          RXPacketL = LT.receiveAddressed(message, sizeof(message), 850, WAIT_RX);
           
           //we received something in RX1
           if (RXPacketL && rxw==1)
@@ -1135,6 +1143,41 @@ void loop(void)
         PRINTLN;
         FLUSHOUTPUT;
        
+        PRINT_CSTSTR("Debug: i = ");
+        PRINT_VALUE("%d", i);
+        PRINTLN;
+        PRINT_CSTSTR("Debug: message[i] = ");
+        PRINT_VALUE("%d", message[i]);
+        PRINT_CSTSTR(" (char: ");
+        PRINT_STR("%c", message[i]);
+        PRINT_CSTSTR(")\n");
+        PRINT_CSTSTR("Debug: message[i+1] = ");
+        PRINT_VALUE("%d", message[i+1]);
+        PRINT_CSTSTR(" (char: ");
+        PRINT_STR("%c", message[i+1]);
+        PRINT_CSTSTR(")\n");
+        PRINT_CSTSTR("Debug: full message = ");
+        PRINT_STR("%s", (char*)message);
+        PRINTLN;
+/*
+        // Skip the 4-byte header that wasn't properly removed
+        int header_offset = HEADER_SIZE; // Should be 4
+        i = header_offset; // Start parsing after the header
+
+        PRINT_CSTSTR("Debug: After header skip, i = ");
+        PRINT_VALUE("%d", i);
+        PRINTLN;
+        PRINT_CSTSTR("Debug: message[i] = ");
+        PRINT_VALUE("%d", message[i]);
+        PRINT_CSTSTR(" (char: ");
+        if (message[i] >= 32 && message[i] <= 126) {
+            PRINT_STR("%c", message[i]);
+        } else {
+            PRINT_CSTSTR("?");
+        }
+        PRINT_CSTSTR(")\n");
+*/
+
         // commands have following format /@A6#
         //
         if (i>=0 && message[i]=='/' && message[i+1]=='@') {

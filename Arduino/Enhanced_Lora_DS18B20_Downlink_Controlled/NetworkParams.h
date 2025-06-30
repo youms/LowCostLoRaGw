@@ -40,6 +40,7 @@ struct NetworkTestParams {
 // Test parameter sets (16 configurations total)
 const NetworkTestParams testParams[] = {
   // MIN configurations (SF7)
+  //{LORA_SF7, BW_500_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW500-T20"},
   {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW125-T20"},
   {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 20, "MIN-SF7-BW500-T20"},
   {LORA_SF7, BW_125_VAL, CR_4_5_VAL, 50, "MIN-SF7-BW125-T50"},
@@ -75,13 +76,14 @@ void updateLoRaParams(const NetworkTestParams& params) {
   currentSF = params.sf;
   currentBW = params.bw;
   currentCR = params.cr;
+
   
   // Set new modulation parameters
 #if defined SX126X || defined SX127X
-  LT.setModulationParams(currentSF, Bandwidth, CodeRate, Optimisation);
+  LT.setModulationParams(currentSF, currentBW, currentCR, Optimisation);
 #endif
 #ifdef SX128X
-  LT.setModulationParams(currentSF, Bandwidth, CodeRate);
+  LT.setModulationParams(currentSF, currentBW, currentCR);
 #endif
 
   PRINT_CSTSTR("SF: ");
@@ -110,7 +112,7 @@ void updateLoRaParams(const NetworkTestParams& params) {
 #endif
   }
 
-  
+
   PRINT_CSTSTR("CR: 4/5, Target payload: ");
   PRINT_VALUE("%d", params.payloadSize);
   PRINTLN_CSTSTR(" bytes");
@@ -155,10 +157,10 @@ void loraConfig() {
 
   //set LoRa modem parameters - Use initial configuration from testParams[0]
 #if defined SX126X || defined SX127X
-  LT.setModulationParams(currentSF, Bandwidth, CodeRate, Optimisation);
+  LT.setModulationParams(currentSF, currentBW, currentCR, Optimisation);
 #endif
 #ifdef SX128X
-  LT.setModulationParams(currentSF, Bandwidth, CodeRate);
+  LT.setModulationParams(currentSF, currentBW, currentCR);
 #endif                                     
   //where in the SX buffer packets start, TX and RX
   LT.setBufferBaseAddress(0x00, 0x00);

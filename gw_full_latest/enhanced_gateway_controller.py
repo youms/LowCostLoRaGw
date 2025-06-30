@@ -40,12 +40,28 @@ class GatewayController:
         self.gateway_path = gateway_path
         self.downlink_dir = os.path.join(gateway_path, "downlink")
         self.downlink_file = os.path.join(self.downlink_dir, "downlink-post.txt")
+
+        # Clean up any leftover downlink files
+        if os.path.exists(self.downlink_dir):
+            for fname in os.listdir(self.downlink_dir):
+                if fname.startswith("downlink-post"):
+                    try:
+                        os.remove(os.path.join(self.downlink_dir, fname))
+                    except Exception as e:
+                        print("Failed to delete {}: {}".format(fname, e))
+        else:
+            os.makedirs(self.downlink_dir)
+        
         self.log_dir = os.path.join(gateway_path, "characterization_logs")
         
         # Timing configuration
-        self.cycle_minutes = cycle_minutes
+        self.command_delay = 90  # Send command 90 seconds before cycle end
         self.confirmation_seconds = 30
-        
+        # Add delay time to cycle to maintain actual cycle duration
+        self.total_overhead = self.command_delay + self.confirmation_seconds
+        self.cycle_minutes = cycle_minutes + (self.total_overhead / 60.0)
+        self.requested_cycle_minutes = cycle_minutes  # Store original user request
+            
         # State tracking
         self.current_config_index = 0  # Start with index 0
         self.detected_node_addr = None
@@ -57,7 +73,21 @@ class GatewayController:
         # Setup logging
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
-        self.setup_logging()
+
+        # Define per-run logs BEFORE any logging happens    
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.lora_gateway_log = os.path.join(self.log_dir, "lora_gateway_{}.log".format(run_timestamp))
+        self.post_processing_log = os.path.join(self.log_dir, "post_processing_{}.log".format(run_timestamp))
+        self.log_gw_log = os.path.join(self.log_dir, "log_gw_{}.log".format(run_timestamp))
+
+        # Now set up the main controller log file
+        self.setup_logging()  # This sets self.log_file used by self.log_message()
+        
+        # Now it's safe to log
+        self.log_message("Cycle timing adjustment: User requested {} minutes".format(cycle_minutes))
+        self.log_message("Adding {:.1f} minutes overhead for command timing".format(self.total_overhead / 60.0))
+        self.log_message("Actual cycle duration: {:.1f} minutes".format(self.cycle_minutes))
+
         
         # Signal handlers
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -116,7 +146,7 @@ class GatewayController:
             self.log_message("Error killing gateway processes: {}".format(e), "ERROR")
 
     def start_gateway_with_config(self, config):
-        """Start gateway using manual command pipeline"""
+        """Start gateway using manual command pipeline with individual log files"""
         self.log_message("Starting gateway with config: {}".format(config['name']))
         
         # Kill any existing processes
@@ -126,12 +156,26 @@ class GatewayController:
         try:
             os.chdir(self.gateway_path)
             
-            # Use the manual pipeline command as you specified
-            gateway_cmd = "sudo ./lora_gateway --bw {} --sf {} --cr {} --freq 868.0 | python ./post_processing_gw.py | python ./log_gw.py".format(
-                config['bw'], config['sf'], config['cr']
+            # Create timestamped log files for this cycle
+            """timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            lora_gateway_log = os.path.join(self.log_dir, "lora_gateway_{}_{}.log".format(config['name'], timestamp))
+            post_processing_log = os.path.join(self.log_dir, "post_processing_{}_{}.log".format(config['name'], timestamp))
+            log_gw_log = os.path.join(self.log_dir, "log_gw_{}_{}.log".format(config['name'], timestamp))
+            """
+            
+            # Enhanced pipeline with individual log file redirection
+            gateway_cmd = "sudo ./lora_gateway --bw {} --sf {} --cr {} --freq 868.0 2>&1 | tee {} | python ./post_processing_gw.py 2>&1 | tee {} | python ./log_gw.py 2>&1 | tee {}".format(
+                config['bw'], config['sf'], config['cr'],
+                self.lora_gateway_log,
+                self.post_processing_log, 
+                self.log_gw_log
             )
             
             self.log_message("Starting gateway pipeline: {}".format(gateway_cmd))
+            self.log_message("Log files:")
+            self.log_message("  - lora_gateway: {}".format(self.lora_gateway_log))
+            self.log_message("  - post_processing: {}".format(self.post_processing_log))
+            self.log_message("  - log_gw: {}".format(self.log_gw_log))
             
             self.gateway_process = subprocess.Popen(
                 gateway_cmd,
@@ -190,17 +234,19 @@ class GatewayController:
             self.packets_received += 1
             self.log_message("Packet #{} detected: {}".format(self.packets_received, line))
             
-            # Try to extract node address if available
-            if not self.detected_node_addr:
-                # Look for source address patterns
-                if "src=" in line:
-                    try:
-                        src_match = re.search(r'src=(\d+)', line)
-                        if src_match:
-                            self.detected_node_addr = int(src_match.group(1))
-                            self.log_message("Auto-detected node address: {}".format(self.detected_node_addr))
-                    except:
-                        pass
+            # Parse node address from packet info format: rcv ctrl pkt info (^p): dst,type,src,seq,len,snr,rssi
+            if "rcv ctrl pkt info (^p):" in line and not self.detected_node_addr:
+                try:
+                    # Extract the packet data after the colon
+                    packet_data = line.split("rcv ctrl pkt info (^p):")[1].strip()
+                    # Split by comma and get the 3rd field (index 2) which is src
+                    packet_fields = packet_data.split(',')
+                    if len(packet_fields) >= 3:
+                        src_addr = int(packet_fields[2].strip())
+                        self.detected_node_addr = src_addr
+                        self.log_message("Auto-detected node address: {}".format(self.detected_node_addr))
+                except (ValueError, IndexError) as e:
+                    self.log_message("Error parsing node address from: {} - {}".format(line, e), "WARNING")
             
             # Mark initial sync as complete after first packet
             if not self.initial_sync_complete:
@@ -244,24 +290,22 @@ class GatewayController:
     def send_configuration_command(self, config_index, max_retries=3):
         """Send configuration command via simple downlink file creation"""
         if not self.detected_node_addr:
-            self.log_message("No node address detected, using broadcast (dst=0)")
-            target_addr = 0
-        else:
-            target_addr = self.detected_node_addr
+            self.log_message("ERROR: No node address detected - cannot send command without target address", "ERROR")
+            return False
             
         command = "/@C{}#".format(config_index)
         
         for attempt in range(max_retries):
             self.log_message("Sending config command (attempt {}/{}): {} to node {}".format(
-                attempt + 1, max_retries, command, target_addr))
+                attempt + 1, max_retries, command, self.detected_node_addr))
             
             try:
                 # Create downlink directory if it doesn't exist
                 if not os.path.exists(self.downlink_dir):
                     os.makedirs(self.downlink_dir)
                 
-                # Use the simple manual method you specified
-                downlink_content = '{{"status":"send_request","dst":{},"data":"{}"}}'.format(target_addr, command)
+                # Use the simple manual method you specified - NO MORE BROADCAST
+                downlink_content = '{{"status":"send_request","dst":{},"data":"{}"}}'.format(self.detected_node_addr, command)
                 
                 # Write using simple file creation (like echo command)
                 with open(self.downlink_file, 'w') as f:
@@ -282,7 +326,13 @@ class GatewayController:
         """Run a cycle with specified configuration"""
         cycle_start = datetime.now()
         self.log_message("=== STARTING CYCLE: {} ===".format(config['name']))
-        
+        """
+        self.log_message("Monitoring for {:.1f} minutes (user requested: {:.1f} minutes)".format(
+            self.requested_cycle_minutes, self.requested_cycle_minutes))
+        """
+        self.log_message("Monitoring for {:.1f} minutes before command delay (user requested: {:.1f} minutes, total cycle: {:.1f} minutes)".format(
+            self.cycle_minutes - self.command_delay / 60.0, self.requested_cycle_minutes, self.cycle_minutes))
+
         # Start gateway with this configuration
         if not self.start_gateway_with_config(config):
             self.log_message("Failed to start gateway for cycle", "ERROR")
@@ -290,8 +340,7 @@ class GatewayController:
         
         # Wait for most of the cycle duration
         cycle_duration_seconds = self.cycle_minutes * 60
-        command_delay = 90  # Send command 90 seconds before cycle end
-        monitoring_duration = cycle_duration_seconds - command_delay
+        monitoring_duration = cycle_duration_seconds - self.command_delay
         
         self.log_message("Monitoring for {:.1f} minutes before sending next command...".format(monitoring_duration / 60.0))
         
@@ -362,7 +411,7 @@ def main():
     parser.add_argument('--gateway-path', default='/home/pi/lora_gateway',
                        help='Path to gateway directory')
     parser.add_argument('--cycle-minutes', type=int, default=50,
-                       help='Minutes per configuration cycle')
+                   help='Minutes per configuration cycle (overhead automatically added)')
     parser.add_argument('--max-cycles', type=int,
                        help='Maximum cycles to run')
     parser.add_argument('--sync-timeout', type=int, default=10,

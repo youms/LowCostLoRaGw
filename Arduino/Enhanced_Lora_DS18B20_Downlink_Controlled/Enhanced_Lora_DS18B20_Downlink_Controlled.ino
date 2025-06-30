@@ -78,6 +78,14 @@ uint8_t node_addr = 8;                              // Node address
 const uint8_t idlePeriodInMin = 1;                 // Transmission interval
 unsigned long nextTransmissionTime = 0;             // Next transmission time
 
+#ifdef WITH_APPKEY
+///////////////////////////////////////////////////////////////////
+// CHANGE HERE THE APPKEY, BUT IF GW CHECKS FOR APPKEY, MUST BE
+// IN THE APPKEY LIST MAINTAINED BY GW.
+uint8_t my_appKey[4]={5, 6, 7, 8};
+///////////////////////////////////////////////////////////////////
+#endif
+
 // Message buffer
 uint8_t message[100];
 
@@ -293,14 +301,29 @@ void loop()
     PRINT_VALUE("%d", len);
     PRINTLN_CSTSTR(" bytes)");
     PRINTLN;
+
+    uint8_t p_type=PKT_TYPE_DATA;
+
+#ifdef WITH_APPKEY
+      // indicate that we have an appkey
+      p_type = p_type | PKT_FLAG_DATA_WAPPKEY;
+#endif 
     
     startSend = millis();
-    
-    // Send the packet, return packet length sent if OK, otherwise 0 if transmit error
+
 #ifdef WITH_ACK
-    if (LT.transmitAddressed((uint8_t*)payloadStr, len, PKT_TYPE_DATA | PKT_FLAG_ACK_REQ, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))
+      p_type=PKT_TYPE_DATA | PKT_FLAG_ACK_REQ;
+      // PRINTLN_CSTSTR("Will request an ACK");         
+#endif
+
+    // Send the packet, return packet length sent if OK, otherwise 0 if transmit error
+#ifdef LORAWAN
+      //will return packet length sent if OK, otherwise 0 if transmit error
+      //we use raw format for LoRaWAN
+      if (LT.transmit((uint8_t*)payloadStr, len, 10000, MAX_DBM, WAIT_TX)) 
 #else
-    if (LT.transmitAddressed((uint8_t*)payloadStr, len, PKT_TYPE_DATA, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))
+      //will return packet length sent if OK, otherwise 0 if transmit error
+      if (LT.transmitAddressed((uint8_t*)payloadStr, len, p_type, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))  
 #endif
     {
       endSend = millis();
@@ -313,7 +336,7 @@ void loop()
       PRINT_VALUE("%ld", endSend - startSend);
       PRINTLN_CSTSTR("ms");
 
-#ifdef WITH_ACK
+// #ifdef WITH_ACK
       if (LT.readAckStatus()) {
         PRINT_CSTSTR("Received ACK from gateway ");
         PRINT_VALUE("%d", LT.readRXSource());
@@ -322,11 +345,29 @@ void loop()
         PRINT_VALUE("%d", LT.readPacketSNRinACK());
         PRINTLN; PRINTLN;          
       }
-      else {
+     else {
         PRINTLN;
         PRINTLN_CSTSTR("No ACK received");
       }
+//#endif
+
+#ifdef WITH_EEPROM
+      // save packet number for next packet in case of reboot     
+      my_sx1272config.seq=LT.readTXSeqNo();
+      EEPROM.put(0, my_sx1272config);
 #endif
+      PRINTLN;
+      PRINT_CSTSTR("LoRa pkt size ");
+      PRINT_VALUE("%d", len);
+      PRINTLN;
+      
+      PRINT_CSTSTR("LoRa pkt seq ");   
+      PRINT_VALUE("%d", LT.readTXSeqNo()-1);
+      PRINTLN;
+    
+      PRINT_CSTSTR("LoRa Sent in ");
+      PRINT_VALUE("%ld", endSend-startSend);
+      PRINTLN;
 
       ///////////////////////////////////////////////////////////////////
       // DOWNLINK RECEPTION BLOCK
@@ -347,16 +388,14 @@ void loop()
           // Save new configuration index to EEPROM
           my_sx1272config.current_config_index = currentParamIndex;
           my_sx1272config.addr = node_addr;
+
+          // Save packet number for next packet in case of reboot     
+          my_sx1272config.seq = LT.readTXSeqNo();
+          EEPROM.put(0, my_sx1272config);
           EEPROM.put(0, my_sx1272config);
 #endif
         }
       }
-#endif
-
-#ifdef WITH_EEPROM
-      // Save packet number for next packet in case of reboot     
-      my_sx1272config.seq = LT.readTXSeqNo();
-      EEPROM.put(0, my_sx1272config);
 #endif
     }
     else

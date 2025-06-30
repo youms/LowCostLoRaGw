@@ -382,6 +382,7 @@ void loop()
         if (configChanged) {
           // Update LoRa parameters if configuration was changed
           updateLoRaParams(testParams[currentParamIndex]);
+          PRINT_CSTSTR("Transmission Settings Changed, Wait 30s");
           delay(30000);
           
 #ifdef WITH_EEPROM

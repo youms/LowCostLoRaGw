@@ -3,12 +3,12 @@
     "mode": 1,
     "bw": 125,
     "cr": 5,
-    "sf": 12,
+    "sf": 7,
     "ch": -1,
     "freq": -1
   },
   "gateway_conf": {
-    "gateway_ID": "0000B827EBDCE0CD",
+    "gateway_ID": "",
     "ref_latitude": "3.857130694554432",
     "ref_longitude": "11.5007427282024",
     "wappkey": false,

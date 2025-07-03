@@ -1,3 +1,4 @@
+#include <stdint.h>
 ////////////////////////////////////////////////////////////////
 // Network Parameters Module - FIXED VERSION
 // Defines the 16 network characterization configurations
@@ -10,6 +11,7 @@
 uint8_t currentSF;
 uint8_t currentBW;
 uint8_t currentCR;
+// uint8_t currentPS;
 
 // Network characterization parameters structure
 struct NetworkTestParams {
@@ -76,6 +78,7 @@ void updateLoRaParams(const NetworkTestParams& params) {
   currentSF = params.sf;
   currentBW = params.bw;
   currentCR = params.cr;
+  // currentPS = params.payloadSize;
 
   
   // Set new modulation parameters
@@ -150,10 +153,9 @@ void loraConfig() {
   LT.calibrateImage(0);
 #endif
 
-  // CRITICAL FIX: Initialize global variables first
-  currentSF = testParams[0].sf;
-  currentBW = testParams[0].bw;
-  currentCR = testParams[0].cr;
+  currentSF =  testParams[currentParamIndex].sf;  //LORA_SF12;
+  currentBW = testParams[currentParamIndex].bw;  //BW_125_VAL; 
+  currentCR =  testParams[currentParamIndex].cr; //CR_4_5_VAL;
 
   //set LoRa modem parameters - Use initial configuration from testParams[0]
 #if defined SX126X || defined SX127X

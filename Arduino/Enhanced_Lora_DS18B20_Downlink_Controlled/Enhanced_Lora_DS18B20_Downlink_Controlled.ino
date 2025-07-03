@@ -11,8 +11,8 @@
  *  - LoRa module as defined in Lora_DS18B20_SX12XXX.h
  */
 
-#include <OneWire.h>
-#include <DallasTemperature.h>
+//#include <OneWire.h>
+//#include <DallasTemperature.h>
 #include <SPI.h>
 
 
@@ -42,6 +42,8 @@ SX127XLT LT;
 SX128XLT LT;                                         
 #endif
 
+#include "my_temp_sensor_code.h"
+
 // Print macros for Arduino compatibility
 #define PRINTLN                   Serial.println("")
 #define PRINT_CSTSTR(param)       Serial.print(F(param))
@@ -57,25 +59,26 @@ SX128XLT LT;
 
 
 // Configuration from Arduino_LoRa_SX12XX_DS18B20 sketch
-//#define WITH_EEPROM
+// #define WITH_EEPROM
 #define WITH_APPKEY
 #define WITH_ACK
 #define WITH_RCVW
 #define INVERTIQ_ON_RX
 
-#define ONE_WIRE_BUS 3                          // DS18B20 data pin (avoiding conflicts with LoRa pins)
+//#define ONE_WIRE_BUS 3                          // DS18B20 data pin (avoiding conflicts with LoRa pins)
 #define MY_FREQUENCY 868000000
 
 
 
 // DS18B20 Temperature Sensor setup
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
+// OneWire oneWire(ONE_WIRE_BUS);
+// DallasTemperature sensors(&oneWire);
 
 // Global variables
-uint8_t currentParamIndex = 0;                       // Current parameter set index (0-15)
+uint8_t currentParamIndex = 0;                      // Current parameter set index (0-15)
 uint8_t node_addr = 8;                              // Node address
-const uint8_t idlePeriodInMin = 1;                 // Transmission interval
+unsigned int idlePeriodInMin = 0;                   // Transmission interval
+unsigned int idlePeriodInSec = 13;                  // Needed to obtain 15s sending difference, downlink wait times cause some delays
 unsigned long nextTransmissionTime = 0;             // Next transmission time
 
 #ifdef WITH_APPKEY
@@ -85,6 +88,11 @@ unsigned long nextTransmissionTime = 0;             // Next transmission time
 uint8_t my_appKey[4]={5, 6, 7, 8};
 ///////////////////////////////////////////////////////////////////
 #endif
+
+///////////////////////////////////////////////////////////////////
+// DO NOT CHANGE HERE
+//unsigned char DevAddr[4] = { 0x00, 0x00, 0x00, node_addr };
+///////////////////////////////////////////////////////////////////
 
 // Message buffer
 uint8_t message[100];
@@ -150,10 +158,12 @@ void createPaddedPayload(char* dest, float temperature, uint8_t targetSize) {
 
 void setup()
 {
-  delay(1000);
+  digitalWrite(PIN_POWER,HIGH);
+
+  delay(500);
   
   Serial.begin(38400);
-  while (!Serial);
+  // while (!Serial);
   
   PRINTLN_CSTSTR("Enhanced DS18B20 LoRa Downlink-Controlled Network Characterization");
   PRINTLN_CSTSTR("Supports 16 configurations via downlink commands /@C<index>#");
@@ -161,11 +171,11 @@ void setup()
   SPI.begin();
 
   // Initialize DS18B20 sensor
-  sensors.begin();
+  // sensors.begin();
   
-  PRINT_CSTSTR("Found ");
-  PRINT_VALUE("%d", sensors.getDeviceCount());
-  PRINTLN_CSTSTR(" temperature sensor(s)");
+  // PRINT_CSTSTR("Found ");
+  // PRINT_VALUE("%d", ds18b20.getDeviceCount());
+  // PRINTLN_CSTSTR(" temperature sensor(s)");
 
   // Initialize LoRa device
 #ifdef SX126X
@@ -179,6 +189,7 @@ void setup()
 #endif
   {
     PRINTLN_CSTSTR("LoRa Device found");
+    delay(1000);
   }
   else
   {
@@ -243,8 +254,11 @@ void setup()
 #endif
 
   PRINTLN_CSTSTR("Downlink-Controlled Network Characterization Ready");
+
+  sensor_Init();
   
   // Initialize with current parameter set
+  // currentParamIndex = 9;
   updateLoRaParams(testParams[currentParamIndex]);
   nextTransmissionTime = millis() + 5000; // First transmission in 5 seconds
   
@@ -255,6 +269,7 @@ void loop()
 {
   long startSend;
   long endSend;
+  uint8_t app_key_offset=0;
   float tempC;
   bool sensorError = false;
 
@@ -263,12 +278,11 @@ void loop()
     
     // Read temperature from DS18B20 sensor
     PRINTLN_CSTSTR("Reading temperature...");
-/* 
+/*
     // Take multiple readings for accuracy
     tempC = 0.0;
-    for (int i=0; i<3; i++) {
-      sensors.requestTemperatures(); 
-      float reading = sensors.getTempCByIndex(0);
+    for (int i=0; i<1; i++) {
+      float reading = sensor_getValue();
       if (reading == DEVICE_DISCONNECTED_C) {
         sensorError = true;
         break;
@@ -278,7 +292,7 @@ void loop()
     }
       
     if (!sensorError) {
-      tempC = tempC/3;
+      tempC = tempC / 3;
       PRINT_CSTSTR("Temperature: ");
       PRINT_VALUE("%.2f", tempC);
       PRINTLN_CSTSTR("°C");
@@ -286,13 +300,61 @@ void loop()
       PRINTLN_CSTSTR("Sensor error - using test value");
       tempC = 24.21;  // Test value when sensor disconnected
     }
-*/ 
-    tempC = 24.21;  // Test value when sensor disconnected
+
+
+
+//    for (int i=0; i<5; i++) {
+//        tempC += sensor_getValue();  
+//        delay(100);
+//    }
+
+     // tempC = sensor_getValue();
+    // tempC = 24.21;  // Test value when sensor disconnected
+*/
+
+#if defined WITH_APPKEY && not defined LORAWAN
+      app_key_offset = sizeof(my_appKey);
+      // set the app key in the payload
+      memcpy(message,my_appKey,app_key_offset);
+#endif
+
+    tempC = sensor_getValue();
+      if (tempC == -999.0) {
+        PRINT_CSTSTR("ERROR - Sending custom value\n");
+        tempC = random_value();
+      }
 
     // Create payload with target size from current configuration
+    uint8_t r_size;
     char payloadStr[100];
     createPaddedPayload(payloadStr, tempC, testParams[currentParamIndex].payloadSize);
+
+    r_size = testParams[currentParamIndex].payloadSize;  // Use the target size directly
     
+    // Copy padded message to transmission buffer
+    memcpy(message, payloadStr, r_size);
+    
+ //   while (!configChanged){
+//      PRINT_CSTSTR("DISCOVERY PHASE: SF12, BW125, CR5\n");
+ //   }    
+    PRINT_CSTSTR("Config: ");
+    Serial.println(testParams[currentParamIndex].name);
+    PRINTLN;
+    
+    PRINT_CSTSTR("Sending: ");
+    PRINT_STR("%s", (char*)message);
+    PRINTLN;
+    
+    PRINT_CSTSTR("Payload size is ");
+    PRINT_VALUE("%d", r_size);
+    PRINTLN;
+
+    LT.printASCIIPacket(message, r_size);
+    PRINTLN;
+    
+    // Check channel before transmission
+//    LT.CarrierSense();
+/*    
     uint8_t len = strlen(payloadStr);
     
     PRINT_CSTSTR("Sending: ");
@@ -301,7 +363,7 @@ void loop()
     PRINT_VALUE("%d", len);
     PRINTLN_CSTSTR(" bytes)");
     PRINTLN;
-
+*/
     uint8_t p_type=PKT_TYPE_DATA;
 
 #ifdef WITH_APPKEY
@@ -320,10 +382,10 @@ void loop()
 #ifdef LORAWAN
       //will return packet length sent if OK, otherwise 0 if transmit error
       //we use raw format for LoRaWAN
-      if (LT.transmit((uint8_t*)payloadStr, len, 10000, MAX_DBM, WAIT_TX)) 
+      if (LT.transmit(message, r_size, 10000, MAX_DBM, WAIT_TX)) 
 #else
       //will return packet length sent if OK, otherwise 0 if transmit error
-      if (LT.transmitAddressed((uint8_t*)payloadStr, len, p_type, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))  
+      if (LT.transmitAddressed(message, r_size, p_type, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))  
 #endif
     {
       endSend = millis();
@@ -331,7 +393,7 @@ void loop()
       
       PRINTLN;
       PRINT_CSTSTR("Sent OK - ");
-      PRINT_VALUE("%d", len);
+      PRINT_VALUE("%d", r_size);
       PRINT_CSTSTR(" bytes in ");
       PRINT_VALUE("%ld", endSend - startSend);
       PRINTLN_CSTSTR("ms");
@@ -358,7 +420,7 @@ void loop()
 #endif
       PRINTLN;
       PRINT_CSTSTR("LoRa pkt size ");
-      PRINT_VALUE("%d", len);
+      PRINT_VALUE("%d", r_size);
       PRINTLN;
       
       PRINT_CSTSTR("LoRa pkt seq ");   
@@ -383,7 +445,8 @@ void loop()
           // Update LoRa parameters if configuration was changed
           updateLoRaParams(testParams[currentParamIndex]);
           PRINT_CSTSTR("Transmission Settings Changed, Wait 30s");
-          delay(30000);
+          PRINTLN;
+          delay(20000);
           
 #ifdef WITH_EEPROM
           // Save new configuration index to EEPROM
@@ -411,14 +474,22 @@ void loop()
       PRINT_HEX("%d", IRQStatus);
       LT.printIrqStatus(); 
     }
-    
+/*    
     // Set next transmission time
-    nextTransmissionTime = millis() + (unsigned long)idlePeriodInMin * 20 * 1000;
+    nextTransmissionTime = millis() + (unsigned long)idlePeriodInMin * 10 * 1000;
     
     PRINT_CSTSTR("Next transmission in ");
     PRINT_VALUE("%d", idlePeriodInMin * 20);
     PRINTLN_CSTSTR(" s");
     PRINTLN;
+*/
+    PRINTLN;
+    PRINT_CSTSTR("Will send next value at\n");
+    // can use a random part also to avoid collision
+    nextTransmissionTime=millis()+((idlePeriodInSec==0)?(unsigned long)idlePeriodInMin*60*1000:(unsigned long)idlePeriodInSec*1000);
+    //+(unsigned long)random(15,60)*1000;
+    PRINT_VALUE("%ld", nextTransmissionTime);
+    PRINTLN;    
   }
   
   delay(100);

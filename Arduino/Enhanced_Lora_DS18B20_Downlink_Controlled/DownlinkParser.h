@@ -353,7 +353,7 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
           
           // Validate configuration index (0-15)
           extern const uint8_t NUM_TEST_PARAMS;
-          if (cmdValue >= 0 && cmdValue < NUM_TEST_PARAMS) {
+          if (cmdValue >= 0 && cmdValue < NUM_TEST_PARAMS - 3) {
             currentParamIndex = cmdValue;
             
             PRINT_CSTSTR("Set configuration to index ");
@@ -368,7 +368,7 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
             PRINT_CSTSTR("Invalid configuration index: ");
             PRINT_VALUE("%ld", cmdValue);
             PRINT_CSTSTR(" (valid range: 0-");
-            PRINT_VALUE("%d", NUM_TEST_PARAMS-1);
+            PRINT_VALUE("%d", NUM_TEST_PARAMS-3);
             PRINTLN_CSTSTR(")");
           }
           break;
@@ -376,12 +376,26 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
         // Set transmission interval /@I10# to set to 10 minutes for instance
         case 'I': 
           i++;
+          extern unsigned int idlePeriodInSec;
           cmdValue=getCmdValue(i, cmdstr);
 
           // This is just for display - idlePeriodInMin is const in main sketch
-          PRINT_CSTSTR("Transmission interval command received: ");
-          PRINT_VALUE("%ld", cmdValue);  
-          PRINTLN_CSTSTR(" minutes (Note: interval is fixed in this version)");         
+          // PRINT_CSTSTR("Transmission interval command received: ");
+          // PRINT_VALUE("%ld", cmdValue); 
+          PRINT_CSTSTR("Set Transmission interval to ");
+          PRINT_VALUE("%d", cmdValue);
+          PRINT_CSTSTR(" seconds");
+          PRINTLN;
+
+          if (cmdValue >=5){
+              idlePeriodInSec = cmdValue;
+              configChanged = true;
+          }
+          else{
+            PRINT_CSTSTR("Invalid Interval");
+          }
+ 
+          // PRINTLN_CSTSTR(" minutes (Note: interval is fixed in this version)");         
           break;  
 
         // Toggle LED example /@L1# 

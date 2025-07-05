@@ -38,7 +38,7 @@ CONFIGURATIONS = [
 ]
 
 class GatewayController:
-    def __init__(self, gateway_path="/home/pi/lora_gateway", cycle_minutes=50):
+    def __init__(self, gateway_path="/home/pi/lora_gateway", cycle_minutes=50, start_index=0):
         self.gateway_path = gateway_path
         self.downlink_dir = os.path.join(gateway_path, "downlink")
         self.downlink_file = os.path.join(self.downlink_dir, "downlink-post.txt")
@@ -84,12 +84,15 @@ class GatewayController:
         self.requested_cycle_minutes = cycle_minutes
             
         # State tracking
-        self.current_config_index = 0  # Start with index 0
+        # self.current_config_index = 0  # Start with index 0
         self.detected_node_addr = None
         self.gateway_process = None
         self.running = True
         self.initial_sync_complete = False
         self.packets_received = 0
+        self.current_config_index = start_index
+        if not (0 <= start_index < len(CONFIGURATIONS)):
+            raise ValueError("start_index must be between 0 and {} (got {})".format(len(CONFIGURATIONS)-1, start_index))
         
         # Add radio parameter tracking
         self.current_sf = None
@@ -395,6 +398,7 @@ class GatewayController:
             
             return  # Exit early after primary detection
         
+        """
         # LOGGING: Additional information for debugging
         elif "^p" in line:
             self.log_message("Control info: {}".format(line))
@@ -408,11 +412,13 @@ class GatewayController:
             self.log_message("Data accepted by post_processing")
         elif "uploading with" in line:
             self.log_message("Cloud upload: {}".format(line))
+        """
 
     def wait_for_initial_sync(self, timeout_minutes=10):
         """Wait for first packet to trigger the characterization loop"""
         self.log_message("=== WAITING FOR FIRST PACKET TO START CHARACTERIZATION ===")
-        self.log_message("Starting with config index 0: {}".format(CONFIGURATIONS[0]['name']))
+        # self.log_message("Starting with config index 0: {}".format(CONFIGURATIONS[0]['name']))
+        self.log_message("Starting with config index {}: {}".format(self.current_config_index, CONFIGURATIONS[self.current_config_index]['name']))
         
         # Force initial startup by resetting radio parameters to None
         # This ensures the gateway actually starts for the first time
@@ -421,13 +427,13 @@ class GatewayController:
         self.current_cr = None
         
         # Start gateway with index 0 configuration
-        if not self.start_gateway_with_config(CONFIGURATIONS[0]):
+        if not self.start_gateway_with_config(CONFIGURATIONS[self.current_config_index]):
             return False
         
         # Update radio parameters tracking after successful start
-        self.current_sf = CONFIGURATIONS[0]['sf']
-        self.current_bw = CONFIGURATIONS[0]['bw']
-        self.current_cr = CONFIGURATIONS[0]['cr']        
+        self.current_sf = CONFIGURATIONS[self.current_config_index]['sf']
+        self.current_bw = CONFIGURATIONS[self.current_config_index]['bw']
+        self.current_cr = CONFIGURATIONS[self.current_config_index]['cr']        
         
         # Wait for first packet or timeout
         start_time = time.time()
@@ -648,10 +654,10 @@ class GatewayController:
                     old_index = self.current_config_index
                     self.current_config_index = (self.current_config_index + 1) % len(CONFIGURATIONS)
                     self.log_message("ADVANCED: index {} -> {} for next cycle".format(old_index, self.current_config_index))
-                else:
+                # else:
                     # After first cycle, advance from 0 to 1
-                    self.current_config_index = 1
-                    self.log_message("FIRST CYCLE COMPLETE: advanced from index 0 -> 1 for next cycle")
+                #    self.current_config_index = 1
+                #    self.log_message("FIRST CYCLE COMPLETE: advanced from index 0 -> 1 for next cycle")
                 
                 if max_cycles and cycle_count >= max_cycles:
                     self.log_message("Maximum cycles ({}) reached, stopping".format(max_cycles))
@@ -686,13 +692,16 @@ def main():
                        help='Number of downlink attempts per transition')
     parser.add_argument('--gateway-check-interval', type=int,
                        help='Override gateway downlink check interval (default: auto-detect from gateway_conf.json)')
+    parser.add_argument('--start-index', type=int, default=0,
+                   help='Starting configuration index (0-11) for resuming after power loss')
     
     args = parser.parse_args()
     
     # Create controller with basic settings
     controller = GatewayController(
         gateway_path=args.gateway_path,
-        cycle_minutes=args.cycle_minutes
+        cycle_minutes=args.cycle_minutes,
+        start_index=args.start_index
     )
     
     # Apply any command-line overrides BEFORE recalculating timings

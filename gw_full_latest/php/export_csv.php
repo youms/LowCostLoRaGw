@@ -2,7 +2,16 @@
 header('Content-Type: application/csv');
 // 20201109 engineer
 // header('Content-Disposition: attachment; filename=example.csv');
-header('Content-Disposition: attachment; filename=received_data.csv');
+//header('Content-Disposition: attachment; filename=received_data.csv');
+
+// Generate datetime string: YYYYMMDD_HHMMSS format
+$datetime = date('Ymd_His');
+// Create filename with datetime: received_data_YYYYMMDD_HHMMSS.csv
+$filename = "received_data_" . $datetime . ".csv";
+// Set the Content-Disposition header with datetime filename
+header('Content-Disposition: attachment; filename=' . $filename);
+// =====================================
+
 header('Pragma: no-cache');
 
 /* 20201109 engineer

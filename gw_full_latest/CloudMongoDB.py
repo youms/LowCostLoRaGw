@@ -188,6 +188,7 @@ def main(ldata, pdata, rdata, tdata, gwid):
 		"type":ptype,
 		"gateway_eui":gwid, 
 		"node_eui":src,
+		"seq":seq,
 		"snr":SNR, 
 		"rssi":RSSI,
 		"len":datalen,

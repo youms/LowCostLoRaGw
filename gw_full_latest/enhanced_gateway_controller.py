@@ -58,7 +58,10 @@ class GatewayController:
         
         # Timing configuration - BASED ON ACTUAL GATEWAY CONFIGURATION
         self.monitoring_time = cycle_minutes * 60  # USER GETS EXACTLY THIS MUCH CLEAN TIME
-        self.downlink_attempts = 4  # Number of downlink attempts
+        self.downlink_attempts = 1  # Number of downlink attempts
+        self.commands_per_attempt = 2 # 2 commands in one file
+        self.downlink_multiplier = 2  # Multiplier for downlink attempts (default 1)
+        
         # self.downlink_interval = 10  # Seconds between downlink attempts
         
         # Auto-detect the gateway's downlink processing interval
@@ -77,7 +80,17 @@ class GatewayController:
         
         # Calculate buffer time: (attempts * interval) + final processing time
         # After 4th attempt, wait one more gateway check interval for processing
-        self.buffer_time = (self.downlink_attempts * self.downlink_interval) + self.gateway_downlink_check + 15
+        # self.buffer_time = (self.downlink_attempts * self.downlink_interval) + self.gateway_downlink_check + 15
+        
+        # Calculate buffer time: gateway_check + (commands × node_interval) + safety
+        self.node_transmission_interval = 15  # Seconds between node transmissions
+        self.node_downlink_delay = 30  # Seconds node waits after receiving each downlink
+        self.buffer_time = (
+            self.gateway_downlink_check +  # 30s - time to find file
+            (self.commands_per_attempt * self.node_transmission_interval) +  # 4×15s - transmission time
+            (self.commands_per_attempt * self.node_downlink_delay) +  # 4×30s - node processing delay
+            30  # Safety margin
+        )  # Total: 30 + 60 + 120 + 30 = 260 seconds
         
         # Calculate total cycle time (monitoring + overhead)
         self.total_cycle_time = self.monitoring_time + self.buffer_time
@@ -111,7 +124,7 @@ class GatewayController:
         self.log_message("USER REQUESTED: {} minutes of clean monitoring per configuration".format(cycle_minutes))
         self.log_message("CLEAN MONITORING TIME: {} seconds ({} minutes)".format(self.monitoring_time, self.monitoring_time / 60))
         self.log_message("DOWNLINK CONFIGURATION:")
-        self.log_message("DOWNLINK CONFIGURATION:")
+        """
         self.log_message("  - Attempts per transition: {}".format(self.downlink_attempts))
         self.log_message("  - Gateway checks every: {} seconds".format(self.gateway_downlink_check))
         self.log_message("  - Interval between attempts: {} seconds ({}+10s safety)".format(
@@ -126,6 +139,29 @@ class GatewayController:
         self.log_message("TOTAL CYCLE DURATION: {} seconds ({:.1f} minutes)".format(
             self.total_cycle_time, self.total_cycle_time / 60.0))
         self.log_message("=" * 60)
+        
+        self.log_message("  - Gateway check time: {} seconds".format(self.gateway_downlink_check))
+        self.log_message("  - Command transmission: {} commands × [ Interval of {}s + Node delay of {}s ] = {} seconds".format(
+            self.commands_per_attempt, self.node_transmission_interval, self.node_downlink_delay, 
+            self.commands_per_attempt * (self.node_transmission_interval + self.node_downlink_delay)))
+        self.log_message("  - Safety margin: 10 seconds")
+        self.log_message("  - TOTAL BUFFER TIME: {} seconds ({:.1f} minutes)".format(
+            self.buffer_time, self.buffer_time / 60.0))
+        """
+        
+        self.log_message("BUFFER TIME CALCULATION:")
+        self.log_message("  - Gateway check time: {} seconds".format(self.gateway_downlink_check))
+        self.log_message("  - Command transmission: {} commands × {}s = {} seconds".format(
+            self.commands_per_attempt, self.node_transmission_interval, 
+            self.commands_per_attempt * self.node_transmission_interval))
+        self.log_message("  - Node downlink processing: {} commands × {}s = {} seconds".format(
+            self.commands_per_attempt, self.node_downlink_delay,
+            self.commands_per_attempt * self.node_downlink_delay))
+        self.log_message("  - Safety margin: 30 seconds")
+        self.log_message("  - STANDARD BUFFER TIME: {} seconds ({:.1f} minutes)".format(
+            self.buffer_time, self.buffer_time / 60.0))
+        self.log_message("  - INDEX 10 BUFFER TIME: {} seconds ({:.1f} minutes)".format(
+            self.get_buffer_time(10), self.get_buffer_time(10) / 60.0))
         
         # Signal handlers
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -206,7 +242,7 @@ class GatewayController:
         """Clean up downlink folder - same logic as __init__"""
         if os.path.exists(self.downlink_dir):
             for fname in os.listdir(self.downlink_dir):
-                if fname.startswith("downlink-post"):
+                if fname.startswith("downlink"):
                     try:
                         os.remove(os.path.join(self.downlink_dir, fname))
                         self.log_message("Cleaned downlink file: {}".format(fname))
@@ -215,6 +251,21 @@ class GatewayController:
         else:
             self.log_message("Downlink directory does not exist")
 
+    def get_buffer_time(self, config_index):
+        """Calculate buffer time based on configuration index"""
+        if config_index == 10:
+            # Double commands for SF12BW500→SF12BW125 transition
+            commands = self.commands_per_attempt * self.downlink_multiplier
+            buffer_time = (
+                self.gateway_downlink_check +
+                (commands * self.node_transmission_interval) +
+                (commands * self.node_downlink_delay) +
+                30
+            )
+            return buffer_time
+        else:
+            return self.buffer_time  # Standard buffer time
+    
     def get_gateway_id(self):
         """Get gateway ID from gateway_conf.json (same method as post_processing_gw.py)"""
         try:
@@ -455,7 +506,7 @@ class GatewayController:
         if self.initial_sync_complete:
             self.log_message("=== FIRST PACKET RECEIVED - STARTING CHARACTERIZATION ===")
             self.log_message("Node address: {}".format(self.detected_node_addr or "Unknown"))
-            self.log_message("Starting configuration: {}".format(CONFIGURATIONS[0]['name']))
+            self.log_message("Starting configuration: {}".format(CONFIGURATIONS[self.current_config_index]['name']))
             return True
         
         return False
@@ -473,6 +524,7 @@ class GatewayController:
         self.log_message("Command: {} to node {}".format(command, self.detected_node_addr))
         
         success_count = 0
+        # commands_per_interval = 2  # Append 2 commands per interval
         
         for attempt in range(1, self.downlink_attempts + 1):
             self.log_message("Downlink attempt {}/{}: {}".format(attempt, self.downlink_attempts, command))
@@ -489,10 +541,27 @@ class GatewayController:
                 downlink_content_with_newline = downlink_content + '\n'
                 
                 # Write using simple file creation - overwrite any existing content
-                with open(self.downlink_file, 'w') as f:
-                    f.write(downlink_content_with_newline)
+                # with open(self.downlink_file, 'w') as f:
+                #    f.write(downlink_content_with_newline)
                 
-                self.log_message("Created downlink file: {}".format(downlink_content))
+                # Write multiple commands - append to build up a queue
+                # with open(self.downlink_file, 'w' if attempt == 1 else 'a') as f:
+                # with open(self.downlink_file, 'w') as f:
+                #    for i in range(commands_per_interval):
+                #        f.write(downlink_content_with_newline)
+                
+                # Write multiple commands - append to build up a queue
+                with open(self.downlink_file, 'w') as f:
+                # Double commands for SF12BW500→SF12BW125 transition (index 10)
+                    loops = self.commands_per_attempt * self.downlink_multiplier if config_index == 10 else self.commands_per_attempt
+                
+                    if config_index == 10:
+                        self.log_message("Using {} commands for SF12BW500→SF12BW125 transition".format(loops))
+                    
+                    for i in range(loops):
+                        f.write(downlink_content_with_newline)
+
+                self.log_message("Created downlink file with {} commands: {}".format(loops, downlink_content))
                 
                 # Verify the file was written correctly
                 try:
@@ -500,26 +569,42 @@ class GatewayController:
                         written_content = f.read()
                     
                     # Verify JSON is valid
-                    json.loads(written_content.strip())
-                    success_count += 1
-                    self.log_message("Downlink attempt {} successful".format(attempt))
+                    # json.loads(written_content.strip())
+                    # success_count += 1
+                    # self.log_message("Downlink attempt {} successful".format(attempt))
                     
+                    # Count successful commands
+                    # success_count += commands_per_interval
+                    # self.log_message("Downlink attempt {} successful - wrote {} commands".format(attempt, commands_per_interval))
+                    
+                    # Count lines to verify multiple commands
+                    command_count = len([line for line in written_content.strip().split('\n') if line.strip()])
+                    success_count += self.commands_per_attempt
+                    self.log_message("Downlink attempt {} successful - {} total commands in file".format(attempt, command_count))
+                                    
                 except Exception as verify_error:
                     self.log_message("Downlink attempt {} failed verification: {}".format(attempt, verify_error), "ERROR")
                     continue
                 
                 # Wait before next attempt (except for last attempt) -> Wait even at last attempt
-                if attempt <= self.downlink_attempts:
-                    self.log_message("Waiting {} seconds before next attempt...".format(self.downlink_interval))
-                    time.sleep(self.downlink_interval)
+                #if attempt <= self.downlink_attempts:
+                #    self.log_message("Waiting {} seconds before next attempt...".format(self.downlink_interval))
+                #    time.sleep(self.downlink_interval)
                     
             except Exception as e:
                 self.log_message("Error in downlink attempt {}: {}".format(attempt, e), "ERROR")
                 if attempt <= self.downlink_attempts:
                     time.sleep(self.downlink_interval)
         
+        # Wait for all commands to be processed
+        # Use appropriate buffer time based on config index
+        buffer_time_to_use = self.get_buffer_time(config_index)
+        self.log_message("Waiting {} seconds for downlinks to be processed...".format(buffer_time_to_use))
+        time.sleep(buffer_time_to_use)
+        
         self.log_message("=== DOWNLINK PHASE COMPLETE ===")
-        self.log_message("Successful attempts: {}/{}".format(success_count, self.downlink_attempts))
+        self.log_message("Total commands written: {}".format(success_count))
+        self.log_message("Successful attempts: {}/{}".format(attempt, self.downlink_attempts))
         
         # Consider it successful if at least one attempt worked
         return success_count > 0
@@ -575,6 +660,8 @@ class GatewayController:
         self.cleanup_downlink_folder()
         self.log_message("Cleared downlink queue to ensure clean monitoring phase")
         
+        time.sleep(5)  # Give some time for the gateway to stabilize
+        
         # PHASE 4: START MARKER (only after gateway is actually configured)
         self.log_message("=== PHASE 4: START MARKER ===")
         if not self.create_database_marker(config['name'], "START"):
@@ -588,7 +675,7 @@ class GatewayController:
         packet_count_start = self.packets_received
         
         while time.time() - start_time < self.monitoring_time and self.running:
-            time.sleep(10)  # Check every 10 seconds
+            time.sleep(2)  # Check every 2 seconds
             
             # Log progress every minute
             elapsed = time.time() - start_time
@@ -614,6 +701,11 @@ class GatewayController:
         self.log_message("ACTUAL CLEAN MONITORING TIME: {:.2f} minutes".format(actual_monitoring_time / 60.0))
         self.log_message("REQUESTED CLEAN TIME: {} minutes".format(self.monitoring_time / 60))
         self.log_message("Packets received this cycle: {}".format(total_packets_this_cycle))
+        
+        # Safety cleanup of downlink folder
+        # self.cleanup_downlink_folder()
+        # self.log_message("Cleaning up downlink folder after cycle completion")
+        
         
         return True
 
@@ -650,10 +742,10 @@ class GatewayController:
                 self.log_message("Cycle {} completed successfully".format(cycle_count))
                 
                 # FIXED: Advance index AFTER successful cycle completion
-                if not is_first_cycle:
-                    old_index = self.current_config_index
-                    self.current_config_index = (self.current_config_index + 1) % len(CONFIGURATIONS)
-                    self.log_message("ADVANCED: index {} -> {} for next cycle".format(old_index, self.current_config_index))
+                #if not is_first_cycle:
+                old_index = self.current_config_index
+                self.current_config_index = (self.current_config_index + 1) % len(CONFIGURATIONS)
+                self.log_message("ADVANCED: index {} -> {} for next cycle".format(old_index, self.current_config_index))
                 # else:
                     # After first cycle, advance from 0 to 1
                 #    self.current_config_index = 1
@@ -688,8 +780,8 @@ def main():
                        help='Maximum cycles to run (0 = infinite)')
     parser.add_argument('--sync-timeout', type=int, default=10,
                        help='Minutes to wait for initial packet')
-    parser.add_argument('--downlink-attempts', type=int, default=4,
-                       help='Number of downlink attempts per transition')
+    # parser.add_argument('--downlink-attempts', type=int, default=1,
+    #                    help='Number of downlink attempts per transition')
     parser.add_argument('--gateway-check-interval', type=int,
                        help='Override gateway downlink check interval (default: auto-detect from gateway_conf.json)')
     parser.add_argument('--start-index', type=int, default=0,
@@ -707,10 +799,10 @@ def main():
     # Apply any command-line overrides BEFORE recalculating timings
     settings_changed = False
     
-    if args.downlink_attempts != 4:  # Only if different from default
-        controller.downlink_attempts = args.downlink_attempts
-        settings_changed = True
-        controller.log_message("Override: downlink attempts = {}".format(args.downlink_attempts))
+    # if args.downlink_attempts != 1:  # Only if different from default
+    #    controller.downlink_attempts = args.downlink_attempts
+    #    settings_changed = True
+    #    controller.log_message("Override: downlink attempts = {}".format(args.downlink_attempts))
     
     if args.gateway_check_interval:
         controller.gateway_downlink_check = args.gateway_check_interval
@@ -724,8 +816,13 @@ def main():
         # Recalculate downlink interval
         controller.downlink_interval = controller.gateway_downlink_check + 10
         
-        # Recalculate buffer time
-        controller.buffer_time = (controller.downlink_attempts * controller.downlink_interval) + controller.gateway_downlink_check + 15
+        # Recalculate buffer time using new formula
+        controller.buffer_time = (
+            controller.gateway_downlink_check +
+            (controller.commands_per_attempt * controller.node_transmission_interval) +
+            (controller.commands_per_attempt * controller.node_downlink_delay) +
+            30
+        )
         
         # Recalculate total cycle time
         controller.total_cycle_time = controller.monitoring_time + controller.buffer_time
@@ -734,7 +831,9 @@ def main():
         controller.log_message("=== RECALCULATED TIMING CONFIGURATION ===")
         controller.log_message("Downlink attempts: {}".format(controller.downlink_attempts))
         controller.log_message("Gateway check interval: {} seconds".format(controller.gateway_downlink_check))
-        controller.log_message("Interval between attempts: {} seconds".format(controller.downlink_interval))
+        controller.log_message("Commands per attempt: {}".format(controller.commands_per_attempt))
+        controller.log_message("Node transmission interval: {}s".format(controller.node_transmission_interval))
+        controller.log_message("Node downlink delay: {}s".format(controller.node_downlink_delay))
         controller.log_message("Buffer time: {} seconds ({:.1f} minutes)".format(
             controller.buffer_time, controller.buffer_time / 60.0))
         controller.log_message("Total cycle time: {} seconds ({:.1f} minutes)".format(
@@ -748,8 +847,10 @@ def main():
     controller.log_message("Buffer overhead: {} seconds ({:.1f} minutes)".format(
         controller.buffer_time, controller.buffer_time / 60.0))
     controller.log_message("Total time per cycle: {:.1f} minutes".format(controller.total_cycle_time / 60.0))
-    controller.log_message("Downlink strategy: {} attempts every {} seconds".format(
-        controller.downlink_attempts, controller.downlink_interval))
+    # controller.log_message("Downlink strategy: {} attempts every {} seconds".format(
+    #     controller.downlink_attempts, controller.downlink_interval))
+    controller.log_message("Downlink strategy: {} commands per attempt, {} for index 10".format(
+        controller.commands_per_attempt, controller.commands_per_attempt * controller.downlink_multiplier))
     controller.log_message("Max cycles: {}".format(args.max_cycles if args.max_cycles else "unlimited"))
     controller.log_message("=" * 50)
     

@@ -79,7 +79,10 @@
 						echo $date;
 						
 						ob_start(); 
-						system("wget -q --tries=3 --spider http://www.google.com", $retval);
+						// Timeout network check
+// timeout 3 wget -q --tries=1 --spider http://www.google.com 2>/dev/null
+// $retval = $? === 0 ? 0 : 1;
+$connected = (bool)@fsockopen("8.8.8.8", 53, $errno, $errstr, 1); $retval = $connected ? 0 : 1;
 						$msg=ob_get_contents(); 
 						ob_clean();
 						if ($retval == 0) {

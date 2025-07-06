@@ -44,6 +44,26 @@ SX128XLT LT;
 
 #include "my_temp_sensor_code.h"
 
+///////////////////////////////////////////////////////////////////
+// COMMENT THIS LINE IF YOU WANT TO DYNAMICALLY SET THE NODE'S ADDR 
+// OR SOME OTHER PARAMETERS BY REMOTE RADIO COMMANDS (WITH_RCVW)
+// LEAVE THIS LINE UNCOMMENTED IF YOU WANT TO USE THE DEFAULT VALUE
+// AND CONFIGURE YOUR DEVICE BY CHANGING MANUALLY THESE VALUES IN 
+// THE SKETCH.
+//
+// ONCE YOU HAVE FLASHED A BOARD WITHOUT FORCE_DEFAULT_VALUE, YOU 
+// WILL BE ABLE TO DYNAMICALLY CONFIGURE IT AND SAVE THIS CONFIGU-
+// RATION INTO EEPROM. ON RESET, THE BOARD WILL USE THE SAVED CON-
+// FIGURATION.
+
+// IF YOU WANT TO REINITIALIZE A BOARD, YOU HAVE TO FIRST FLASH IT 
+// WITH FORCE_DEFAULT_VALUE, WAIT FOR ABOUT 10s SO THAT IT CAN BOOT
+// AND FLASH IT AGAIN WITHOUT FORCE_DEFAULT_VALUE. THE BOARD WILL 
+// THEN USE THE DEFAULT CONFIGURATION UNTIL NEXT CONFIGURATION.
+
+//#define FORCE_DEFAULT_VALUE
+///////////////////////////////////////////////////////////////////
+
 // Print macros for Arduino compatibility
 #define PRINTLN                   Serial.println("")
 #define PRINT_CSTSTR(param)       Serial.print(F(param))
@@ -59,8 +79,8 @@ SX128XLT LT;
 
 
 // Configuration from Arduino_LoRa_SX12XX_DS18B20 sketch
-// #define WITH_EEPROM
-#define WITH_APPKEY
+#define WITH_EEPROM
+//#define WITH_APPKEY
 #define WITH_ACK
 #define WITH_RCVW
 #define INVERTIQ_ON_RX
@@ -76,7 +96,7 @@ SX128XLT LT;
 
 // Global variables
 uint8_t currentParamIndex = 0;                      // Current parameter set index (0-15)
-uint8_t node_addr = 8;                              // Node address
+uint8_t node_addr = 20;                              // Node address
 unsigned int idlePeriodInMin = 0;                   // Transmission interval
 unsigned int idlePeriodInSec = 13;                  // Needed to obtain 15s sending difference, downlink wait times cause some delays
 unsigned long nextTransmissionTime = 0;             // Next transmission time
@@ -207,6 +227,7 @@ void setup()
   LT.printOperatingSettings();                                 
   PRINTLN;
 
+  /*
 #ifdef WITH_EEPROM
   EEPROM.get(0, my_sx1272config);
   
@@ -232,6 +253,89 @@ void setup()
     my_sx1272config.seq=LT.readTXSeqNo();
     my_sx1272config.addr=node_addr;
     my_sx1272config.current_config_index=currentParamIndex;
+  }
+#endif */
+
+#ifdef WITH_EEPROM
+
+  // get config from EEPROM
+  EEPROM.get(0, my_sx1272config);
+
+  // found a valid config?
+  if (my_sx1272config.flag1==0x12 && my_sx1272config.flag2==0x35) {
+    PRINT_CSTSTR("Get back previous sx1272 config\n");
+    // set sequence number for SX1272 library
+
+#ifdef FORCE_DEFAULT_VALUE
+    LT.setTXSeqNo(TXPacketCount);
+#else
+    LT.setTXSeqNo(my_sx1272config.seq);
+#endif
+    PRINT_CSTSTR("Using packet sequence number of ");
+    PRINT_VALUE("%d", LT.readTXSeqNo());
+    PRINTLN;    
+
+#ifdef FORCE_DEFAULT_VALUE
+    PRINT_CSTSTR("Forced to use default parameters\n");
+    my_sx1272config.flag1=0x12;
+    my_sx1272config.flag2=0x35;   
+    my_sx1272config.seq=LT.readTXSeqNo(); 
+    my_sx1272config.addr=node_addr;
+    my_sx1272config.idle_period=idlePeriodInSec;
+    my_sx1272config.current_config_index=currentParamIndex;
+    // reset the overwrite flag    
+    my_sx1272config.overwrite=0;
+    EEPROM.put(0, my_sx1272config);
+#else
+    // get back the node_addr
+    if (my_sx1272config.addr!=0 && my_sx1272config.overwrite==1) {
+      
+        PRINT_CSTSTR("Used stored address\n");
+        node_addr=my_sx1272config.addr;        
+    }
+    else
+        PRINT_CSTSTR("Stored node addr is null\n"); 
+
+    // get back the idle period
+    if (my_sx1272config.idle_period!=0 && my_sx1272config.overwrite==1) {
+      
+        PRINT_CSTSTR("Used stored idle period\n");
+        idlePeriodInSec=my_sx1272config.idle_period;        
+    }
+    else
+        PRINT_CSTSTR("Stored idle period is null\n");
+
+    // get back the currentParamIndex
+    if (my_sx1272config.current_config_index!=0 && my_sx1272config.overwrite==1) {
+        PRINT_CSTSTR("Used stored configuration index\n");
+        currentParamIndex=my_sx1272config.current_config_index;        
+    }
+    else
+        PRINT_CSTSTR("Stored configuration index is null\n");
+                 
+#endif  
+          
+    PRINT_CSTSTR("Using node addr of ");
+    PRINT_VALUE("%d", node_addr);
+    PRINTLN;   
+
+    PRINT_CSTSTR("Using idle period of ");
+    PRINT_VALUE("%d", idlePeriodInSec);
+    PRINTLN;     
+
+    PRINT_CSTSTR("Using configuration index of ");
+    PRINT_VALUE("%d", currentParamIndex);
+    PRINTLN;
+    
+  }
+  else {
+    // otherwise, write config and start over
+    my_sx1272config.flag1=0x12;
+    my_sx1272config.flag2=0x35;  
+    my_sx1272config.seq=LT.readTXSeqNo(); 
+    my_sx1272config.addr=node_addr;
+    my_sx1272config.idle_period=idlePeriodInSec;
+    my_sx1272config.overwrite=0;
   }
 #endif
 
@@ -446,8 +550,8 @@ void loop()
           updateLoRaParams(testParams[currentParamIndex]);
           PRINT_CSTSTR("Transmission Settings Changed, Wait 30s");
           PRINTLN;
-          delay(20000);
-          
+          delay(30000);
+/*          
 #ifdef WITH_EEPROM
           // Save new configuration index to EEPROM
           my_sx1272config.current_config_index = currentParamIndex;
@@ -457,7 +561,7 @@ void loop()
           my_sx1272config.seq = LT.readTXSeqNo();
           EEPROM.put(0, my_sx1272config);
           EEPROM.put(0, my_sx1272config);
-#endif
+#endif */
         }
       }
 #endif

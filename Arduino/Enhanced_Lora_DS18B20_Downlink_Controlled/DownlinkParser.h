@@ -52,6 +52,12 @@ long getCmdValue(int &i, char* cmdstr, char* strBuff=NULL) {
 // Function based on LoRaWAN specification + empirical gateway behavior
 uint16_t getAdaptiveDelay(uint8_t currentParamIndex) {
   uint8_t currentSF = testParams[currentParamIndex].sf;
+  uint16_t currentBW = testParams[currentParamIndex].bw;
+
+  // Special case for SF12BW500 - use same timing as SF7 (known to work)
+  if (currentSF == LORA_SF12 && currentBW == BW_500_VAL) {
+    return 700;  // Same as SF7 - proven to work reliably
+  }
   
   // Base LoRaWAN RX1 timing (1000ms) minus empirical gateway processing overhead
   switch(currentSF) {
@@ -342,6 +348,12 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
           PRINT_VALUE("%d", node_addr);  
           PRINTLN;     
 
+#ifdef WITH_EEPROM
+                      // save new node_addr in case of reboot
+                      my_sx1272config.addr=node_addr;
+                      my_sx1272config.overwrite=1;
+                      EEPROM.put(0, my_sx1272config);
+#endif
           configChanged = true;
           break;        
 #endif
@@ -371,6 +383,14 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
             PRINT_VALUE("%d", NUM_TEST_PARAMS-3);
             PRINTLN_CSTSTR(")");
           }
+
+#ifdef WITH_EEPROM
+          // Save new configuration index to EEPROM
+          my_sx1272config.current_config_index = currentParamIndex;
+          my_sx1272config.overwrite=1;
+          EEPROM.put(0, my_sx1272config);
+#endif
+
           break;
 
         // Set transmission interval /@I10# to set to 10 minutes for instance
@@ -394,7 +414,14 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
           else{
             PRINT_CSTSTR("Invalid Interval");
           }
- 
+
+#ifdef WITH_EEPROM
+                      // save new node_addr in case of reboot
+                      my_sx1272config.idle_period=idlePeriodInSec;
+                      my_sx1272config.overwrite=1;
+                      EEPROM.put(0, my_sx1272config);
+#endif 
+
           // PRINTLN_CSTSTR(" minutes (Note: interval is fixed in this version)");         
           break;  
 

@@ -60,7 +60,8 @@ class GatewayController:
         self.monitoring_time = cycle_minutes * 60  # USER GETS EXACTLY THIS MUCH CLEAN TIME
         self.downlink_attempts = 1  # Number of downlink attempts
         self.commands_per_attempt = 2 # 2 commands in one file
-        self.downlink_multiplier = 2  # Multiplier for downlink attempts (default 1)
+        self.downlink_multiplier = 3  # Multiplier for downlink attempts (default 1)
+        self.problematic_index = -1  # Index that needs special downlink handling, -1 disables the logic
         
         # self.downlink_interval = 10  # Seconds between downlink attempts
         
@@ -160,8 +161,8 @@ class GatewayController:
         self.log_message("  - Safety margin: 30 seconds")
         self.log_message("  - STANDARD BUFFER TIME: {} seconds ({:.1f} minutes)".format(
             self.buffer_time, self.buffer_time / 60.0))
-        self.log_message("  - INDEX 10 BUFFER TIME: {} seconds ({:.1f} minutes)".format(
-            self.get_buffer_time(10), self.get_buffer_time(10) / 60.0))
+        # self.log_message("  - INDEX 10 BUFFER TIME: {} seconds ({:.1f} minutes)".format(
+        #    self.get_buffer_time(10), self.get_buffer_time(10) / 60.0))
         
         # Signal handlers
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -253,7 +254,7 @@ class GatewayController:
 
     def get_buffer_time(self, config_index):
         """Calculate buffer time based on configuration index"""
-        if config_index == 10:
+        if config_index == self.problematic_index:
             # Double commands for SF12BW500→SF12BW125 transition
             commands = self.commands_per_attempt * self.downlink_multiplier
             buffer_time = (
@@ -553,10 +554,10 @@ class GatewayController:
                 # Write multiple commands - append to build up a queue
                 with open(self.downlink_file, 'w') as f:
                 # Double commands for SF12BW500→SF12BW125 transition (index 10)
-                    loops = self.commands_per_attempt * self.downlink_multiplier if config_index == 10 else self.commands_per_attempt
+                    loops = self.commands_per_attempt * self.downlink_multiplier if config_index == self.problematic_index else self.commands_per_attempt
                 
-                    if config_index == 10:
-                        self.log_message("Using {} commands for SF12BW500→SF12BW125 transition".format(loops))
+                    if config_index == self.problematic_index:
+                        self.log_message("Using {} commands for {} → {} transition".format(loops, CONFIGURATIONS[config_index-1]['name'], CONFIGURATIONS[config_index]['name']))
                     
                     for i in range(loops):
                         f.write(downlink_content_with_newline)
@@ -849,8 +850,10 @@ def main():
     controller.log_message("Total time per cycle: {:.1f} minutes".format(controller.total_cycle_time / 60.0))
     # controller.log_message("Downlink strategy: {} attempts every {} seconds".format(
     #     controller.downlink_attempts, controller.downlink_interval))
-    controller.log_message("Downlink strategy: {} commands per attempt, {} for index 10".format(
-        controller.commands_per_attempt, controller.commands_per_attempt * controller.downlink_multiplier))
+    #controller.log_message("Downlink strategy: {} commands per attempt, {} for index {}".format(
+    #    controller.commands_per_attempt, controller.commands_per_attempt * controller.downlink_multiplier
+    #    , controller.problematic_index)
+    # )
     controller.log_message("Max cycles: {}".format(args.max_cycles if args.max_cycles else "unlimited"))
     controller.log_message("=" * 50)
     

@@ -17,7 +17,7 @@ $cursor = $collection->find();
 $cursor->sort(array('time' => 1));
 
 //echo columns name first
-echo ("type;gateway_eui;node_eui;snr;rssi;cr;datarate;time;data"."\n");
+echo ("type;gateway_eui;node_eui;snr;rssi;;len;cr;datarate;time;data"."\n");
 
 //then echo each part of each document from the collection
 foreach($cursor as $cur)
@@ -26,6 +26,7 @@ foreach($cursor as $cur)
 		.$cur['node_eui'].";"
 		.$cur['snr'].";"
 		.$cur['rssi'].";"
+		.$cur['len'].";"
 		.$cur['cr'].";"
 		.$cur['datarate'].";"
 		.gmdate('Y-m-d H:i:s', $cur['time']->sec).";"

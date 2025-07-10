@@ -2,7 +2,16 @@
 header('Content-Type: application/csv');
 // 20201109 engineer
 // header('Content-Disposition: attachment; filename=example.csv');
-header('Content-Disposition: attachment; filename=received_data.csv');
+//header('Content-Disposition: attachment; filename=received_data.csv');
+
+// Generate datetime string: YYYYMMDD_HHMMSS format
+$datetime = date('Ymd_His');
+// Create filename with datetime: received_data_YYYYMMDD_HHMMSS.csv
+$filename = "received_data_" . $datetime . ".csv";
+// Set the Content-Disposition header with datetime filename
+header('Content-Disposition: attachment; filename=' . $filename);
+// =====================================
+
 header('Pragma: no-cache');
 
 /* 20201109 engineer
@@ -34,7 +43,7 @@ try {
 
 
 //echo columns name first
-echo ("type;gateway_eui;node_eui;snr;rssi;cr;datarate;time;data"."\n");
+echo ("type;gateway_eui;node_eui;snr;rssi;len;cr;datarate;time;data"."\n");
 
 //then echo each part of each document from the collection
 
@@ -49,12 +58,13 @@ while ($cursor = $it->current()) {
 		.$cur['node_eui'].";"
 		.$cur['snr'].";"
 		.$cur['rssi'].";"
+		.$cur['len'].";"
 		.$cur['cr'].";"
 		.$cur['datarate'].";"
 // 20201109 engineer
 //		.gmdate('Y-m-d H:i:s', $cur['time']->sec).";"
 		.gmdate('Y-m-d H:i:s', $cur['time']->toDateTime()->getTimestamp()).";"
-		.$cur['data'].";"
+		.$cur['data'] //.";"
 		."\n");
 
    $it->next();

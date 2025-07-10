@@ -4,7 +4,7 @@ Low-cost LoRa gateway features and configuration tools
 Quick start
 -----------
 
-- Download our 32-bit ([zipped 8GB SD card image from GoogleDrive](https://drive.google.com/uc?export=download&id=1ZiIpA_PfARHPmQetJ25iZnfyjeD8Rm3j)) or 64-bit ([zipped 8GB SD card image from GoogleDrive](https://drive.google.com/uc?export=download&id=1UzSULM2TjCKWjVWIvHqLy6Iu_FR_1Xmo)). See [installation section](https://github.com/CongducPham/LowCostLoRaGw#installing-the-latest-gateway-version)
+- Download our 32-bit ([zipped 8GB SD card image from GoogleDrive](https://drive.google.com/uc?export=download&id=1Euuo4tPJrz6EHGFQ7IsCrWJbmJmHgLJR)) or 64-bit ([zipped 8GB SD card image from GoogleDrive](https://drive.google.com/uc?export=download&id=1Hhzk58VFMVw31mxc5Svo8JCb2C492cnJ)). See [installation section](https://github.com/CongducPham/LowCostLoRaGw#installing-the-latest-gateway-version)
 - Read the [Low-cost-LoRa-GW leaflet](https://github.com/CongducPham/tutorials/blob/master/Low-cost-LoRa-GW-leaflet.pdf)
 - Look at the [Low-cost-LoRa-GW web admin interface tutorial](https://github.com/CongducPham/tutorials/blob/master/Low-cost-LoRa-GW-web-admin.pdf). For most end-users, the web admin interface is sufficient to configure and manage the gateway. **For instance, to configure a new gateway, it is recommended to use the web admin interface to update the gateway software and to run the basic configuration procedure as described [here](https://github.com/CongducPham/LowCostLoRaGw#option-i)**.
 - **The rest of this README file contains additional information to better understand the gateway architecture and advanced mechanisms**.
@@ -13,10 +13,9 @@ Quick start
 There are additional dedicated README files
 -------------------------------------------
 
-- Support of RPI4 (including CM4)
-	- [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-WiringPi-64bit-OS.md) for wiringPi on RPI4 and/or 64-bit OS
 - Embedded AI framework on 64-bit RaspiOS (beta version)
 	- [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-AI.md)
+	- [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-WiringPi-64bit-OS.md) for wiringPI on RPI4 and/or 64-bit OS
 - better support of LoRaWAN and connection to TTN platform
 	- [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-TTN.md) for TTN support and configuration
 	- [section](https://github.com/CongducPham/LowCostLoRaGw/tree/master/Arduino#lorawan-example-and-support) for the device side
@@ -92,7 +91,7 @@ DO NOT modify the `lora_gateway.cpp` file unless you know what you are doing.
 
 Use `radio.makefile` to indicate the radio type: `SX12XX=SX1272 | SX126X | SX127X | SX128X`. `SX12XX=SX1272` means that you want to keep the old Libelium SX1272 library version while `SX12XX=SX126X | SX127X | SX128X` uses Stuart Robinson's SX12XX lib to seamlessly support the whole SX12XX LoRa chip family. Default setting is `SX12XX=SX127X` for SX127X chip family using Stuart Robinson's SX12XX lib. See [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-SX12XX.md).
 
-Use `raspberry.makefile` to indicate the SPI lib which can be `arduPi` or `wiringPi`: `SPILIB=ARDUPI | WIRINGPI`. Default setting is now `SPILIB=WIRINGPI` for both 32-bit and 64-bit. See [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-WiringPi-64bit-OS.md).
+Use `raspberry.makefile` to indicate the SPI lib which can be `arduPi` or `wiringPi`: `SPILIB=ARDUPI | WIRINGPI`. Default setting is `SPILIB=ARDUPI`. If you run on 32-bit OS, which is probably the case, then leave it as it is. If you run on 64-bit OS then change to `SPILIB=WIRINGPI`. You can also decide to change to `wiringPi` even for 32-bit OS if you want. See [README](https://github.com/CongducPham/LowCostLoRaGw/blob/master/gw_full_latest/README-WiringPi-64bit-OS.md).
       
 Use also `radio.makefile` file to indicate whether your radio module uses the PA_BOOST amplifier line or not (which means it uses the RFO line). HopeRF RFM92W/95W or inAir9B or NiceRF1276 or a radio module with +20dBm possibility (the SX1272/76 has +20dBm feature but some radio modules that integrate the SX1272/76 may not have the electronic to support it) need the `-DPABOOST`. Both Libelium SX1272 and inAir9 (not inAir9B) do not use PA_BOOST. You can also define a maximum output power to stay within transmission power regulations of your country. For instance, if you do not define anything, then the output power is set to 14dBm (ETSI european regulations), otherwise use `-DMAX_DBM=10` for 10dBm. 
 

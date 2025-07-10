@@ -55,7 +55,7 @@ try:
 	lorawan_server = gw_json_array["gateway_conf"]["downlink_network_server"]
 except KeyError:
 	lorawan_server="127.0.0.1"
-	#lorawan_server = "router.eu.thethings.network"
+	#lorawan_server = "eu1.cloud.thethings.network"
 
 lorawan_port=1700
 

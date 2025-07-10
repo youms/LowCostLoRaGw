@@ -6,7 +6,7 @@
 			"script":"python CloudMongoDB.py",
 			"type":"database",
 			"max_months_to_store":2,
-			"enabled":false
+			"enabled":true
 		},
 		{	
 			"name":"SMS Service",
@@ -38,7 +38,7 @@
 			"name":"ThingSpeak cloud",
 			"script":"python CloudThingSpeak.py",
 			"type":"iotcloud",			
-			"enabled":true
+			"enabled":false
 		},
 		{	
 			"name":"NodeRed flow",

@@ -1,0 +1,251 @@
+// Enhanced MQ2 Multi-Gas Analyzer Payload Structure
+// Total: 10 bytes
+//
+// Byte 0-1: Raw ADC value (0-1023)
+// Byte 2-3: LPG concentration (ppm) 
+// Byte 4-5: Methane concentration (ppm)
+// Byte 6-7: CO concentration (ppm)
+// Byte 8-9: Rs/R0 ratio (scaled by 1000)
+
+// TTN Decoder Function for Enhanced MQ2 Multi-Gas Analyzer
+function Decoder(bytes, port) {
+  // Check if we have the expected payload size
+  if (bytes.length !== 10) {
+    return {
+      error: "Invalid payload length. Expected 10 bytes for multi-gas data."
+    };
+  }
+  
+  // Decode raw ADC value (bytes 0-1)
+  var raw_adc = (bytes[0] << 8) | bytes[1];
+  
+  // Decode LPG concentration (bytes 2-3)
+  var lpg_ppm = (bytes[2] << 8) | bytes[3];
+  
+  // Decode Methane concentration (bytes 4-5)
+  var methane_ppm = (bytes[4] << 8) | bytes[5];
+  
+  // Decode CO concentration (bytes 6-7)
+  var co_ppm = (bytes[6] << 8) | bytes[7];
+  
+  // Decode Rs/R0 ratio (bytes 8-9, scaled by 1000)
+  var rs_r0_ratio_raw = (bytes[8] << 8) | bytes[9];
+  var rs_r0_ratio = rs_r0_ratio_raw / 1000.0;
+  
+  // Convert ADC to voltage
+  var voltage = raw_adc * (5.0 / 1023.0);
+  
+  // Calculate sensor resistance
+  var sensor_resistance = 0;
+  if (voltage > 0) {
+    sensor_resistance = (5.0 - voltage) * 10000.0 / voltage;
+  }
+  
+  // Calculate additional gas concentrations using Rs/R0 ratio
+  var hydrogen_ppm = 0;
+  var alcohol_ppm = 0;
+  var propane_ppm = 0;
+  var smoke_ppm = 0;
+  
+  if (rs_r0_ratio > 0) {
+    hydrogen_ppm = 988.05 * Math.pow(rs_r0_ratio, -1.767);
+    alcohol_ppm = 75.906 * Math.pow(rs_r0_ratio, -1.691);
+    propane_ppm = 614.56 * Math.pow(rs_r0_ratio, -2.564);
+    smoke_ppm = 143.01 * Math.pow(rs_r0_ratio, -2.186);
+  }
+  
+  // Safety level assessment
+  var safety_level = "SAFE";
+  var alerts = [];
+  
+  // CO safety thresholds
+  if (co_ppm > 1000) {
+    safety_level = "DANGER";
+    alerts.push("CO-CRITICAL");
+  } else if (co_ppm > 200) {
+    safety_level = "WARNING";
+    alerts.push("CO-HIGH");
+  } else if (co_ppm > 50) {
+    safety_level = "CAUTION";
+    alerts.push("CO-ELEVATED");
+  }
+  
+  // Combustible gas thresholds
+  if (lpg_ppm > 10000 || methane_ppm > 10000) {
+    safety_level = "DANGER";
+    alerts.push("EXPLOSIVE-RISK");
+  } else if (lpg_ppm > 5000 || methane_ppm > 5000) {
+    safety_level = "WARNING";
+    alerts.push("COMBUSTIBLE-HIGH");
+  } else if (lpg_ppm > 1000 || methane_ppm > 1000) {
+    if (safety_level === "SAFE") safety_level = "CAUTION";
+    alerts.push("COMBUSTIBLE-DETECTED");
+  }
+  
+  // Alcohol detection
+  if (alcohol_ppm > 1000) {
+    alerts.push("ALCOHOL-HIGH");
+  } else if (alcohol_ppm > 200) {
+    alerts.push("ALCOHOL-DETECTED");
+  }
+  
+  // Overall air quality assessment
+  var air_quality = "GOOD";
+  if (safety_level === "DANGER") {
+    air_quality = "HAZARDOUS";
+  } else if (safety_level === "WARNING") {
+    air_quality = "UNHEALTHY";
+  } else if (safety_level === "CAUTION") {
+    air_quality = "MODERATE";
+  }
+  
+  // Determine dominant gas
+  var max_concentration = Math.max(lpg_ppm, methane_ppm, co_ppm, hydrogen_ppm, alcohol_ppm);
+  var dominant_gas = "None";
+  
+  if (max_concentration > 50) { // Only if significant concentration
+    if (max_concentration === lpg_ppm) dominant_gas = "LPG";
+    else if (max_concentration === methane_ppm) dominant_gas = "Methane";
+    else if (max_concentration === co_ppm) dominant_gas = "Carbon Monoxide";
+    else if (max_concentration === hydrogen_ppm) dominant_gas = "Hydrogen";
+    else if (max_concentration === alcohol_ppm) dominant_gas = "Alcohol";
+  }
+  
+  // Gas detection confidence (based on Rs/R0 ratio ranges)
+  var detection_confidence = "LOW";
+  if (rs_r0_ratio >= 0.1 && rs_r0_ratio <= 2.0) {
+    detection_confidence = "HIGH";
+  } else if (rs_r0_ratio >= 0.05 && rs_r0_ratio <= 5.0) {
+    detection_confidence = "MEDIUM";
+  }
+  
+  return {
+    // Raw sensor data
+    raw_adc_value: raw_adc,
+    voltage: parseFloat(voltage.toFixed(3)),
+    sensor_resistance: Math.round(sensor_resistance),
+    rs_r0_ratio: parseFloat(rs_r0_ratio.toFixed(3)),
+    
+    // Primary gas concentrations (from payload)
+    lpg_ppm: lpg_ppm,
+    methane_ppm: methane_ppm,
+    co_ppm: co_ppm,
+    
+    // Calculated gas concentrations
+    hydrogen_ppm: Math.round(hydrogen_ppm),
+    alcohol_ppm: Math.round(alcohol_ppm),
+    propane_ppm: Math.round(propane_ppm),
+    smoke_ppm: Math.round(smoke_ppm),
+    
+    // Safety and analysis
+    safety_level: safety_level,
+    air_quality: air_quality,
+    alerts: alerts,
+    dominant_gas: dominant_gas,
+    max_concentration_ppm: Math.round(max_concentration),
+    detection_confidence: detection_confidence,
+    
+    // Environmental context
+    environment_type: getEnvironmentType(lpg_ppm, methane_ppm, co_ppm, alcohol_ppm),
+    
+    // Metadata
+    port: port,
+    timestamp: new Date().toISOString(),
+    
+    // Recommendations
+    action_required: getActionRequired(safety_level, alerts),
+    ventilation_needed: (safety_level !== "SAFE"),
+    
+    // Data quality indicators
+    sensor_status: getSensorStatus(voltage, rs_r0_ratio),
+    calibration_needed: (rs_r0_ratio < 0.1 || rs_r0_ratio > 10)
+  };
+  
+  // Helper function to determine environment type
+  function getEnvironmentType(lpg, methane, co, alcohol) {
+    if (lpg > 500 || propane_ppm > 500) return "Kitchen/Cooking";
+    if (methane > 500) return "Industrial/Waste";
+    if (co > 100) return "Vehicle/Garage";
+    if (alcohol > 300) return "Laboratory/Medical";
+    if (smoke_ppm > 200) return "Fire/Smoke";
+    return "General/Office";
+  }
+  
+  // Helper function to determine required actions
+  function getActionRequired(level, alert_list) {
+    if (level === "DANGER") {
+      return "IMMEDIATE EVACUATION - Ventilate area and check gas sources";
+    } else if (level === "WARNING") {
+      return "Increase ventilation and monitor closely";
+    } else if (level === "CAUTION") {
+      return "Monitor conditions and identify gas source";
+    }
+    return "Continue normal monitoring";
+  }
+  
+  // Helper function to assess sensor status
+  function getSensorStatus(volt, ratio) {
+    if (volt < 0.5) return "SENSOR_ERROR_LOW_VOLTAGE";
+    if (volt > 4.5) return "SENSOR_ERROR_HIGH_VOLTAGE";
+    if (ratio < 0.05) return "SENSOR_SATURATED";
+    if (ratio > 10) return "SENSOR_NEEDS_CALIBRATION";
+    return "SENSOR_OK";
+  }
+}
+
+// Simplified Decoder (if you just want basic gas readings)
+function SimpleGasDecoder(bytes, port) {
+  if (bytes.length !== 10) {
+    return { error: "Invalid payload length" };
+  }
+  
+  var raw_adc = (bytes[0] << 8) | bytes[1];
+  var lpg_ppm = (bytes[2] << 8) | bytes[3];
+  var methane_ppm = (bytes[4] << 8) | bytes[5];
+  var co_ppm = (bytes[6] << 8) | bytes[7];
+  var rs_r0_ratio = ((bytes[8] << 8) | bytes[9]) / 1000.0;
+  
+  return {
+    adc_value: raw_adc,
+    voltage: parseFloat((raw_adc * 5.0 / 1023.0).toFixed(3)),
+    lpg_ppm: lpg_ppm,
+    methane_ppm: methane_ppm,
+    co_ppm: co_ppm,
+    rs_r0_ratio: parseFloat(rs_r0_ratio.toFixed(3)),
+    alert: (co_ppm > 50 || lpg_ppm > 1000 || methane_ppm > 1000) ? "GAS_DETECTED" : "NORMAL"
+  };
+}
+
+// Example Payloads and Expected Outputs:
+//
+// Clean Air Example:
+// Payload: [0x01, 0x90, 0x00, 0x32, 0x00, 0x28, 0x00, 0x14, 0x02, 0x58]
+// ADC: 400, LPG: 50ppm, Methane: 40ppm, CO: 20ppm, Rs/R0: 0.600
+// Output: {
+//   safety_level: "SAFE",
+//   air_quality: "GOOD", 
+//   dominant_gas: "None",
+//   action_required: "Continue normal monitoring"
+// }
+//
+// Gas Leak Example:
+// Payload: [0x02, 0x80, 0x07, 0xD0, 0x05, 0xDC, 0x00, 0x96, 0x01, 0x2C]
+// ADC: 640, LPG: 2000ppm, Methane: 1500ppm, CO: 150ppm, Rs/R0: 0.300
+// Output: {
+//   safety_level: "WARNING",
+//   air_quality: "UNHEALTHY",
+//   dominant_gas: "LPG",
+//   alerts: ["COMBUSTIBLE-HIGH", "CO-ELEVATED"],
+//   action_required: "Increase ventilation and monitor closely"
+// }
+//
+// CO Danger Example:
+// Payload: [0x03, 0x20, 0x01, 0x90, 0x01, 0x40, 0x04, 0xB0, 0x00, 0xC8]
+// ADC: 800, LPG: 400ppm, Methane: 320ppm, CO: 1200ppm, Rs/R0: 0.200
+// Output: {
+//   safety_level: "DANGER",
+//   air_quality: "HAZARDOUS",
+//   dominant_gas: "Carbon Monoxide",
+//   alerts: ["CO-CRITICAL"],
+//   action_required: "IMMEDIATE EVACUATION - Ventilate area and check gas sources"
+// }

@@ -44,7 +44,7 @@ except AttributeError:
 try:
 	key_LoRaWAN.lorawan_server
 except AttributeError:
-	key_LoRaWAN.lorawan_server="router.eu.thethings.network"
+	key_LoRaWAN.lorawan_server="eu1.cloud.thethings.network"
 	
 try:
 	key_LoRaWAN.lorawan_port

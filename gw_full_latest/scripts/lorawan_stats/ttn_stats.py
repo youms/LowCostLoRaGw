@@ -14,7 +14,7 @@ try:
 	try:
 		key_LoRaWAN.lorawan_server
 	except AttributeError:
-		key_LoRaWAN.lorawan_server="router.eu.thethings.network"
+		key_LoRaWAN.lorawan_server="eu1.cloud.thethings.network"
 	try:
 		key_LoRaWAN.lorawan_port
 	except AttributeError:
@@ -24,7 +24,7 @@ try:
 	lorawan_port=key_LoRaWAN.lorawan_port
 			
 except ImportError:
-	lorawan_server="router.eu.thethings.network"
+	lorawan_server="eu1.cloud.thethings.network"
 	lorawan_port=1700
 
 PROTOCOL_VERSION = 2

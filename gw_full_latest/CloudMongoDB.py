@@ -55,7 +55,7 @@ clouds = json_array["clouds"]
 for cloud in clouds:
 	if "CloudMongoDB.py" in cloud["script"]:
 		mongodb_set_max_months(cloud["max_months_to_store"])
-		print "MongoDB with max months to store is %d" % cloud["max_months_to_store"]
+		print("MongoDB with max months to store is %d" % cloud["max_months_to_store"])
 
 
 # main
@@ -63,7 +63,7 @@ for cloud in clouds:
 
 def main(ldata, pdata, rdata, tdata, gwid):
 
-	now = datetime.datetime.utcnow()
+	now = datetime.datetime.now()
 	
 	# this is common code to process packet information provided by the main gateway script (i.e. post_processing_gw.py)
 	# these information are provided in case you need them	
@@ -181,15 +181,17 @@ def main(ldata, pdata, rdata, tdata, gwid):
 		
 	str_json_data += '}'
 	
-	print str_json_data
+	print(str_json_data)
 	
 	#creating document to add
 	doc = {
 		"type":ptype,
 		"gateway_eui":gwid, 
 		"node_eui":src,
+		"seq":seq,
 		"snr":SNR, 
-		"rssi":RSSI, 
+		"rssi":RSSI,
+		"len":datalen,
 		"cr":cr, 
 		"datarate":"SF"+str(sf)+"BW"+str(bw),
 		"time":now,

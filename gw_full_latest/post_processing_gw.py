@@ -130,6 +130,7 @@ bw=0
 cr=0
 sf=0
 rfq=0
+ToA=0
 
 _hasRadioData=False
 #------------------------------------------------------------
@@ -895,10 +896,11 @@ while True:
 			datalen=arr[4]
 			SNR=arr[5]
 			RSSI=arr[6]
+			ToA=arr[7]
 			if (_rawFormat==0):	
-				info_str="(dst=%d type=0x%.2X(%s) src=%d seq=%d len=%d SNR=%d RSSI=%d)" % (dst,ptype,ptypestr,src,seq,datalen,SNR,RSSI)
+				info_str="(dst=%d type=0x%.2X(%s) src=%d seq=%d len=%d SNR=%d RSSI=%d ToA=%d)" % (dst,ptype,ptypestr,src,seq,datalen,SNR,RSSI,ToA)
 			else:
-				info_str="rawFormat(len=%d SNR=%d RSSI=%d)" % (datalen,SNR,RSSI)	
+				info_str="rawFormat(len=%d SNR=%d RSSI=%d ToA=%d)" % (datalen,SNR,RSSI,ToA)	
 			print info_str
 
 			rxnb=rxnb+1
@@ -906,7 +908,7 @@ while True:
 			rxok=rxnb
 			
 			short_info_1="src=%d seq=%d #pk=%d" % (src,seq,t_rxnb)
-			short_info_2="SNR=%d RSSI=%d" % (SNR,RSSI)
+			short_info_2="SNR=%d RSSI=%d ToA=%d" % (SNR,RSSI,ToA)
 			
 			#here we check for pending downlink message that need to be sent back to the end-device
 			#if we know the device address
@@ -1108,9 +1110,9 @@ while True:
 					#now we read datalen-4 (the header length) bytes in our line buffer
 					fillLinebuf(datalen-HEADER_SIZE)
 					datalen=datalen-HEADER_SIZE
-					pdata="%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen,SNR,RSSI)
+					pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen,SNR,RSSI,ToA)
 					print "update ctrl pkt info (^p): "+pdata
-					print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,bw,cr,sf)
+					print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,bw,cr,sf,ToA)
 					
 					#here we check for pending downlink message that need to be sent back to the end-device
 					#once we know the device address
@@ -1152,12 +1154,12 @@ while True:
 					seq=lorapkt[7]*256+lorapkt[6]
 					
 					#just to print the src in 0x01020304 form
-					pdata="%d,%d,%s,%d,%d,%d,%d" % (256,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI)
+					pdata="%d,%d,%s,%d,%d,%d,%d,%d" % (256,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI,ToA)
 					print "update ctrl pkt info (^p): "+pdata
-					print "+++ rxlora[%d]. lorawan type=0x%.2X src=%s seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d" % (rfq,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI,bw,cr,sf)
+					print "+++ rxlora[%d]. lorawan type=0x%.2X src=%s seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d" % (rfq,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI,bw,cr,sf,ToA)
 					
 					#internally, we convert in int
-					pdata="%d,%d,%d,%d,%d,%d,%d" % (256,ord(ch),src,seq,datalen,SNR,RSSI)
+					pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (256,ord(ch),src,seq,datalen,SNR,RSSI,ToA)
 					
 					lorapktstr_b64=base64.b64encode(lorapktstr)
 					#print "--> FYI base64 of LoRaWAN frame w/MIC: "+lorapktstr_b64
@@ -1228,7 +1230,7 @@ while True:
 					continue	
 					
 			else:
-				print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,bw,cr,sf)								
+				print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,bw,cr,sf,ToA)								
 				#now we read datalen bytes in our line buffer
 				fillLinebuf(datalen)				
 				
@@ -1299,7 +1301,7 @@ while True:
 							datalen = len(plain_payload)					
 							#remove the data encrypted flag
 							ptype = ptype & (~PKT_FLAG_DATA_ENCRYPTED)
-							pdata="%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,len(plain_payload),SNR,RSSI)	
+							pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,len(plain_payload),SNR,RSSI,ToA)	
 							print '--> changed packet type to clear data'					
 											
 				else:
@@ -1313,7 +1315,7 @@ while True:
 							print "--> discard encrypted data"
 						else:					
 							#update pdata with new data length
-							pdata="%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen,SNR,RSSI)
+							pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen,SNR,RSSI,ToA)
 							
 							#loop over all enabled clouds to upload data
 							#once again, it is up to the corresponding cloud script to handle the data format
@@ -1353,7 +1355,7 @@ while True:
 				print " ".join("0x{:02x}".format(ord(c)) for c in the_app_key)
 				
 				#correct the size of real payload
-				pdata="%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen-APPKEY_SIZE,SNR,RSSI)
+				pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen-APPKEY_SIZE,SNR,RSSI,ToA)
 
 				if _wappkey==1:
 					if the_app_key in key_AppKey.app_key_list:

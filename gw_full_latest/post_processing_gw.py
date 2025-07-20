@@ -1112,7 +1112,7 @@ while True:
 					datalen=datalen-HEADER_SIZE
 					pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (dst,ptype,src,seq,datalen,SNR,RSSI,ToA)
 					print "update ctrl pkt info (^p): "+pdata
-					print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,bw,cr,sf,ToA)
+					print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d ToA=%d BW=%d CR=4/%d SF=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,ToA,bw,cr,sf)
 					
 					#here we check for pending downlink message that need to be sent back to the end-device
 					#once we know the device address
@@ -1156,7 +1156,7 @@ while True:
 					#just to print the src in 0x01020304 form
 					pdata="%d,%d,%s,%d,%d,%d,%d,%d" % (256,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI,ToA)
 					print "update ctrl pkt info (^p): "+pdata
-					print "+++ rxlora[%d]. lorawan type=0x%.2X src=%s seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d" % (rfq,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI,bw,cr,sf,ToA)
+					print "+++ rxlora[%d]. lorawan type=0x%.2X src=%s seq=%d len=%d SNR=%d RSSIpkt=%d ToA=%d BW=%d CR=4/%d SF=%d" % (rfq,ord(ch),"0x%0.8X" % src,seq,datalen,SNR,RSSI,ToA,bw,cr,sf)
 					
 					#internally, we convert in int
 					pdata="%d,%d,%d,%d,%d,%d,%d,%d" % (256,ord(ch),src,seq,datalen,SNR,RSSI,ToA)
@@ -1230,7 +1230,7 @@ while True:
 					continue	
 					
 			else:
-				print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,bw,cr,sf,ToA)								
+				print "+++ rxlora[%d]. dst=%d type=0x%.2X src=%d seq=%d len=%d SNR=%d RSSIpkt=%d ToA=%d BW=%d CR=4/%d SF=%d" % (rfq,dst,ptype,src,seq,datalen,SNR,RSSI,ToA,bw,cr,sf)								
 				#now we read datalen bytes in our line buffer
 				fillLinebuf(datalen)				
 				

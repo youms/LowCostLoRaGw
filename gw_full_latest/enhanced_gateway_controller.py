@@ -296,7 +296,8 @@ class GatewayController:
             
             # Format the same way as post_processing_gw.py calls CloudMongoDB.py
             ldata = marker_data  # The marker text (like normal sensor data)
-            pdata = "255,255,0,0,{},0,0".format(len(marker_data))  # Special type 255 for markers
+            # pdata = "255,255,0,0,{},0,0".format(len(marker_data))  # Special type 255 for markers
+            pdata = "255,255,0,0,{},0,0,0".format(len(marker_data))  # Special type 255 for markers with ToA
             rdata = "125,5,12"  # Default radio data for markers  
             tdata = now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+01:00"  # ISO format with timezone
             gwid = gateway_id

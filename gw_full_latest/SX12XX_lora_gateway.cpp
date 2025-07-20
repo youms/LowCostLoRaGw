@@ -934,18 +934,18 @@ void loop(void)
 	 
 			PRINT_STR("%s", print_buf);
 
-			sprintf(print_buf, " len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d ToA=%d\n", 
+			sprintf(print_buf, " len=%d SNR=%d RSSIpkt=%d ToA=%d BW=%d CR=4/%d SF=%d\n", 
 				RXPacketL, 
 				PacketSNR,
 				PacketRSSI,
+				packetToA,
 				LT.returnBandwidth()/1000,
 #if defined SX126X || defined SX128X
 				LT.getLoRaCodingRate()+4,
 #else				
 				LT.getLoRaCodingRate(),
 #endif				
-				LT.getLoRaSF(), 
-				packetToA);     
+				LT.getLoRaSF());     
 
 			PRINT_STR("%s", print_buf);              
 

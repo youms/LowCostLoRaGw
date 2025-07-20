@@ -97,7 +97,7 @@ SX128XLT LT;
 
 // Global variables
 uint8_t currentParamIndex = 2;                      // Current parameter set index (0-15)
-uint8_t node_addr = 20;                              // Node address
+uint8_t node_addr = 30;                              // Node address
 unsigned int idlePeriodInMin = 0;                   // Transmission interval
 unsigned int idlePeriodInSec = 8;                  // Needed to obtain 15s sending difference, downlink wait times cause some delays
 unsigned long nextTransmissionTime = 0;             // Next transmission time
@@ -123,7 +123,7 @@ uint8_t standbyConfigIndex = 8;     // Default: SF12-BW125-T20 (can be changed)
 uint8_t totalNodes = 3;                                    // Total nodes in round-robin
 uint32_t monitoringPeriod = 5;           // 5 minutes monitoring
 uint32_t calculateSleepDuration() {
-  return (totalNodes - 1) * monitoringPeriod * 60 * 1000;
+  return (totalNodes - 1) * (monitoringPeriod + 3) * 60 * 1000; // add 3 minutes to match gateway
 }
 
 #ifdef WITH_APPKEY

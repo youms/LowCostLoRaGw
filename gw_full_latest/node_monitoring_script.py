@@ -45,7 +45,7 @@ CONFIGURATIONS = [
 ]
 
 class NodeMonitoringController:
-    def __init__(self, gateway_path="/home/pi/lora_gateway", monitoring_minutes=5, 
+    def __init__(self, gateway_path="/home/pi/lora_gateway", monitoring_minutes=10, 
                  monitoring_config_index=2, standby_config_index=8, start_node_index=0):
         self.gateway_path = gateway_path
         self.downlink_dir = os.path.join(gateway_path, "downlink")
@@ -90,13 +90,13 @@ class NodeMonitoringController:
         # Calculate buffer time for command processing
         self.node_transmission_interval = 10  # Seconds between node transmissions  
         self.node_downlink_delay = 30  # Seconds node waits after receiving each downlink
-        self.buffer_time = 60 
-        """ (
+        self.buffer_time = 60
+        """(
             self.gateway_downlink_check +
             (self.commands_per_attempt * self.node_transmission_interval) +
             (self.commands_per_attempt * self.node_downlink_delay) +
             30  # Safety margin
-        ) """
+        )""" 
         
         # State tracking
         self.gateway_process = None
@@ -379,7 +379,7 @@ class NodeMonitoringController:
         
         self.log_message("=== STARTING MONITORING CYCLE: {} (Address {}) ===".format(node_name, node_addr))
         
-        # PHASE 1: Send M1 command (gateway STAYS in standby mode for first node)
+        # PHASE 1: Send M1 command (avoid restart for first node)
         self.log_message("=== PHASE 1: SEND M1 COMMAND ===")
         
         if is_first_node:
@@ -438,23 +438,16 @@ class NodeMonitoringController:
         if not self.create_database_marker("MONITORING_END", node_name):
             self.log_message("Failed to create END marker", "WARNING")
         
-        # PHASE 6: Send M0 command (node enters sleep) - STAY in monitoring mode
+        # PHASE 6: Send M0 command (node enters sleep) - stay in monitoring mode
         self.log_message("=== PHASE 6: SEND M0 COMMAND ===")
-        self.log_message("Sending M0 while staying in monitoring mode temporarily...")
+        self.log_message("Sending M0 while staying in monitoring mode...")
         
         if not self.send_downlink_command(node_addr, "/@M0#"):
             self.log_message("Failed to send M0 command", "ERROR")
             return False
         
         self.log_message("M0 command sent - node entering POST_MONITOR_SLEEP")
-        
-        # PHASE 7: Return to standby mode (ready for next node or standby collection)
-        self.log_message("=== PHASE 7: RETURN TO STANDBY MODE ===")
-        if not self.start_gateway_with_config(self.standby_frequency, 12, 125, 5):
-            self.log_message("Failed to start standby gateway", "ERROR")
-            return False
-        
-        self.log_message("Gateway back to standby mode - ready to receive remaining active nodes")
+        self.log_message("Gateway remains in monitoring mode - will switch to standby in next cycle")
         
         # Summary
         total_packets_this_cycle = self.packets_received - packet_count_start
@@ -556,7 +549,7 @@ def main():
     parser = argparse.ArgumentParser(description='Node Monitoring Controller')
     parser.add_argument('--gateway-path', default='/home/pi/lora_gateway',
                        help='Path to gateway directory')
-    parser.add_argument('--monitoring-minutes', type=int, default=5,
+    parser.add_argument('--monitoring-minutes', type=int, default=10,
                        help='Minutes of monitoring per node')
     parser.add_argument('--monitoring-config-index', type=int, default=2,
                        help='Node monitoring configuration index')

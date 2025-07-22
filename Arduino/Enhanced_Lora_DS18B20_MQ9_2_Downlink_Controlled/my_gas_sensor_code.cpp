@@ -28,7 +28,7 @@ float Ro_gas = 10;  // Sensor resistance in clean air (will be calibrated)
 void gas_sensor_Init() {
   Serial.println(F("=== MQ-9 Gas Sensor Initialization ==="));
   Serial.println(F("30s: Warming up sensor..."));
-  // delay(30000);
+  delay(30000);
   
   // Calibrate sensor in clean air
   Serial.print(F("Calibrating sensor in clean air..."));
@@ -38,7 +38,7 @@ void gas_sensor_Init() {
   Serial.println(F(" KOhm"));
   
   // Check if Ro_gas is in realistic range for MQ-9 (based on datasheet: 2-30 KΩ typical)
-  if (Ro_gas < 20.0 || Ro_gas > 50.0) {
+  if (Ro_gas < 5.0 || Ro_gas > 50.0) {
     Serial.print(F("ERROR: Unrealistic Ro value ("));
     Serial.print(Ro_gas);
     Serial.println(F(" KOhm) - Sensor likely disconnected"));
@@ -67,7 +67,7 @@ GasFallbackValues fallback_values;
 // CHANGE HERE THE WAY YOU READ A VALUE FROM YOUR SPECIFIC SENSOR
 // PRIMARY SENSOR READING - RETURNS CO CONCENTRATION (main gas of interest)
 float gas_sensor_getValue() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) {
+  if (Ro_gas <= 0 || Ro_gas < 5.0 || Ro_gas > 50.0) {
     Serial.println(F("MQ-9 sensor disconnected/invalid - using fallback CO value"));
     return fallback_values.co;  // Return fallback CO value
   }

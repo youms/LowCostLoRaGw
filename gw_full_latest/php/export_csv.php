@@ -43,7 +43,7 @@ try {
 
 
 //echo columns name first
-echo ("type;gateway_eui;node_eui;snr;rssi;len;cr;datarate;time;data"."\n");
+echo ("type;gateway_eui;node_eui;snr;rssi;len;toa;cr;datarate;time;data"."\n");
 
 //then echo each part of each document from the collection
 
@@ -59,6 +59,7 @@ while ($cursor = $it->current()) {
 		.$cur['snr'].";"
 		.$cur['rssi'].";"
 		.$cur['len'].";"
+		.$cur['toa'].";"
 		.$cur['cr'].";"
 		.$cur['datarate'].";"
 // 20201109 engineer

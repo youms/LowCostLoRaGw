@@ -26,7 +26,8 @@ import datetime
 import sys
 import re
 
-num_format = re.compile("^[\-]?[1-9][0-9]*\.?[0-9]+$")
+# num_format = re.compile("^[\-]?[1-9][0-9]*\.?[0-9]+$")
+num_format = re.compile("^[\-]?[0-9]+(\.[0-9]+)?$")
 
 global add_document, remove_if_new_month, mongodb_set_max_months
 from MongoDB import add_document, remove_if_new_month, mongodb_set_max_months
@@ -75,6 +76,7 @@ def main(ldata, pdata, rdata, tdata, gwid):
 	datalen=arr[4]
 	SNR=arr[5]
 	RSSI=arr[6]
+	ToA=arr[7]
 	
 	#LoRaWAN packet
 	if dst==256:
@@ -192,6 +194,7 @@ def main(ldata, pdata, rdata, tdata, gwid):
 		"snr":SNR, 
 		"rssi":RSSI,
 		"len":datalen,
+		"toa":ToA,
 		"cr":cr, 
 		"datarate":"SF"+str(sf)+"BW"+str(bw),
 		"time":now,

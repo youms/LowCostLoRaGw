@@ -246,7 +246,7 @@ extern int optind, opterr, optopt;
 #define PRINTLN_HEX(fmt,param)		do {printf(fmt,param);printf("\n");} while(0)
 #define FLUSHOUTPUT               fflush(stdout)
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
   #define DEBUGLN                 PRINTLN
@@ -922,6 +922,8 @@ void loop(void)
 
 			PacketRSSI = LT.readPacketRSSI();              //read the recived RSSI value
 			PacketSNR = LT.readPacketSNR();                //read the received SNR value
+			
+			uint16_t packetToA = LT.getToA(RXPacketL);     //get the value of the ToA field // ADD THIS: Calculate ToA immediately after reception
 
 			sprintf(print_buf, "--- rxlora[%lu]. dst=%d type=0x%02X src=%d seq=%d", 
 				RXpacketCount,
@@ -932,10 +934,11 @@ void loop(void)
 	 
 			PRINT_STR("%s", print_buf);
 
-			sprintf(print_buf, " len=%d SNR=%d RSSIpkt=%d BW=%d CR=4/%d SF=%d\n", 
+			sprintf(print_buf, " len=%d SNR=%d RSSIpkt=%d ToA=%d BW=%d CR=4/%d SF=%d\n", 
 				RXPacketL, 
 				PacketSNR,
 				PacketRSSI,
+				packetToA,
 				LT.returnBandwidth()/1000,
 #if defined SX126X || defined SX128X
 				LT.getLoRaCodingRate()+4,
@@ -947,7 +950,7 @@ void loop(void)
 			PRINT_STR("%s", print_buf);              
 
 			// provide a short output for external program to have information about the received packet
-			// ^psrc_id,seq,len,SNR,RSSI
+			// ^psrc_id,seq,len,SNR,RSSI,ToA
 			sprintf(print_buf, "^p%d,%d,%d,%d,",
 				LT.readRXDestination(),
 				LT.readRXPacketType(), 
@@ -956,10 +959,11 @@ void loop(void)
 	 
 			PRINT_STR("%s", print_buf);       
 
-			sprintf(print_buf, "%d,%d,%d\n",
+			sprintf(print_buf, "%d,%d,%d,%d\n",
 				RXPacketL, 
 				PacketSNR,
-				PacketRSSI);
+				PacketRSSI,
+				packetToA);
 
 			PRINT_STR("%s", print_buf); 
 

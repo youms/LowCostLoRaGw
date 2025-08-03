@@ -46,7 +46,7 @@ CONFIGURATIONS = [
 
 class NodeMonitoringController:
     def __init__(self, gateway_path="/home/pi/lora_gateway", monitoring_minutes=10, 
-                 monitoring_config_index=2, standby_config_index=8, start_node_index=0):
+                 monitoring_config_index=6, standby_config_index=8, start_node_index=0):
         self.gateway_path = gateway_path
         self.downlink_dir = os.path.join(gateway_path, "downlink")
         self.downlink_file = os.path.join(self.downlink_dir, "downlink-post.txt")

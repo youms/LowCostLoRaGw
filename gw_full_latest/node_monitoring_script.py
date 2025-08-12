@@ -387,7 +387,13 @@ class NodeMonitoringController:
             self.log_message("First node - gateway already in standby mode (865.2MHz SF12)")
         else:
             # For subsequent nodes, ensure gateway is in standby mode
-            if not self.start_gateway_with_config(self.standby_frequency, 12, 125, 5):
+            standby_config = CONFIGURATIONS[self.standby_config_index]
+            if not self.start_gateway_with_config(
+                self.standby_frequency, 
+                standby_config['sf'], 
+                standby_config['bw'], 
+                standby_config['cr']
+            ):
                 self.log_message("Failed to start standby gateway", "ERROR")
                 return False
         
@@ -399,7 +405,13 @@ class NodeMonitoringController:
         
         # PHASE 2: Switch gateway to monitoring mode (868MHz SF7)
         self.log_message("=== PHASE 2: SWITCH TO MONITORING MODE ===")
-        if not self.start_gateway_with_config(self.monitoring_frequency, 7, 125, 5):
+        monitoring_config = CONFIGURATIONS[self.monitoring_config_index]
+        if not self.start_gateway_with_config(
+            self.monitoring_frequency,
+            monitoring_config['sf'],
+            monitoring_config['bw'], 
+            monitoring_config['cr']
+        ):
             self.log_message("Failed to start monitoring gateway", "ERROR")
             return False
         
@@ -476,8 +488,14 @@ class NodeMonitoringController:
         
         # STARTUP PHASE: Initialize in standby mode to receive from all nodes
         self.log_message("=== STARTUP PHASE: STANDBY MODE ===")
+        standby_config = CONFIGURATIONS[self.standby_config_index]
         self.log_message("Starting gateway in standby mode (865.2MHz SF12) to receive from all nodes...")
-        if not self.start_gateway_with_config(self.standby_frequency, 12, 125, 5):
+        if not self.start_gateway_with_config(
+            self.standby_frequency,
+            standby_config['sf'],
+            standby_config['bw'], 
+            standby_config['cr']
+        ):
             self.log_message("Failed to start initial standby gateway", "ERROR")
             return False
         
@@ -551,7 +569,7 @@ def main():
                        help='Path to gateway directory')
     parser.add_argument('--monitoring-minutes', type=int, default=10,
                        help='Minutes of monitoring per node')
-    parser.add_argument('--monitoring-config-index', type=int, default=2,
+    parser.add_argument('--monitoring-config-index', type=int, default=6,
                        help='Node monitoring configuration index')
     parser.add_argument('--standby-config-index', type=int, default=8,
                        help='Node standby configuration index')  

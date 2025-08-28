@@ -2,12 +2,14 @@
  *  Enhanced DS18B20 Temperature Sensor with LoRa transmission
  *  Downlink-Controlled Network Characterization Version
  *  Using SX12XX library for LoRa communication
+ *  NOW WITH MQ9 GAS SENSOR SUPPORT
  *  
  *  Supports 16 network parameter configurations triggered by downlink commands:
  *  Command format: /@C<index># where index is 0-15
  *  
  *  Hardware connections:
  *  - DS18B20 data pin -> Arduino Pin 3
+ *  - MQ9 sensor -> Arduino Pin A0
  *  - LoRa module as defined in Lora_DS18B20_SX12XXX.h
  */
 
@@ -43,7 +45,7 @@ SX128XLT LT;
 #endif
 
 #include "my_temp_sensor_code.h"
-#include "my_gas_sensor_code.h"
+#include "my_gas_sensor_code.h"  // ADD: Gas sensor functionality
 
 ///////////////////////////////////////////////////////////////////
 // COMMENT THIS LINE IF YOU WANT TO DYNAMICALLY SET THE NODE'S ADDR 
@@ -96,10 +98,10 @@ SX128XLT LT;
 // DallasTemperature sensors(&oneWire);
 
 // Global variables
-uint8_t currentParamIndex = 6;                      // Current parameter set index (0-15)
-uint8_t node_addr = 10;                             // Node address
+uint8_t currentParamIndex = 0;                      // Current parameter set index (0-15)
+uint8_t node_addr = 20;                              // Node address
 unsigned int idlePeriodInMin = 0;                   // Transmission interval
-unsigned int idlePeriodInSec = 8;                   // Needed to obtain 15s sending difference, downlink wait times cause some delays
+unsigned int idlePeriodInSec = 13;                  // Needed to obtain 15s sending difference, downlink wait times cause some delays
 unsigned long nextTransmissionTime = 0;             // Next transmission time
 
 #ifdef WITH_APPKEY
@@ -177,8 +179,8 @@ void createPaddedPayload(char* dest, float temperature, uint8_t targetSize) {
   }
 }
 
-// New overloaded function for combined sensor data
-void createPaddedPayload(char* dest, float temperature, float gasCO, int gasLPG, 
+// ADD: New overloaded function for combined sensor data
+void createPaddedPayload(char* dest, float temperature, int gasCO, int gasLPG, 
                         int gasMethane, int gasPropane, int gasHydrogen, int gasSmoke, 
                         uint8_t targetSize) {
   char float_str[10];
@@ -189,11 +191,11 @@ void createPaddedPayload(char* dest, float temperature, float gasCO, int gasLPG,
   if (targetSize >= 50) {
     // T50 & T80: Full gas suite (fits comfortably in 50+ bytes)
     baseSize = sprintf(dest, "\\!TC/%s/CO/%d/LPG/%d/CH4/%d/C3H8/%d/H2/%d/SMK/%d", 
-                      float_str, (int)gasCO, gasLPG, gasMethane, gasPropane, gasHydrogen, gasSmoke);
+                      float_str, gasCO, gasLPG, gasMethane, gasPropane, gasHydrogen, gasSmoke);
   } else if (targetSize >= 20) {
     // T20: Critical gases only (CO, LPG, CH4 - most important for safety)
     baseSize = sprintf(dest, "\\!TC/%s/CO/%d/LPG/%d/CH4/%d", 
-                      float_str, (int)gasCO, gasLPG, gasMethane);
+                      float_str, gasCO, gasLPG, gasMethane);
   } else {
     // Fallback: Temperature only (shouldn't happen with your 20/50/80 sizes)
     baseSize = sprintf(dest, "\\!TC/%s", float_str);
@@ -216,7 +218,7 @@ void setup()
   Serial.begin(38400);
   // while (!Serial);
   
-  PRINTLN_CSTSTR("Enhanced DS18B20 LoRa Downlink-Controlled Network Characterization");
+  PRINTLN_CSTSTR("Enhanced DS18B20 + MQ9 LoRa Downlink-Controlled Network Characterization");
   PRINTLN_CSTSTR("Supports 16 configurations via downlink commands /@C<index>#");
   
   SPI.begin();
@@ -388,19 +390,15 @@ void setup()
   PRINT_CSTSTR("SX128X - ");
 #endif
 
-//  PRINTLN_CSTSTR("Downlink-Controlled Network Characterization Ready");
-  PRINTLN_CSTSTR("SCENARIO 1: Carrier Sense + Randomization Mode Ready");
-  PRINT_CSTSTR("Base interval: ");
-  PRINT_VALUE("%d", idlePeriodInSec);
-  PRINTLN_CSTSTR(" seconds + 1-3s random");
+  PRINTLN_CSTSTR("DS18B20 + MQ9 Downlink-Controlled Network Characterization Ready");
 
   sensor_Init();
-  gas_sensor_Init();
+  gas_sensor_Init();  // ADD: Initialize MQ9 gas sensor
   
   // Initialize with current parameter set
   // currentParamIndex = 9;
   updateLoRaParams(testParams[currentParamIndex]);
-  nextTransmissionTime = millis() + random(5000, 15000); // First transmission in random(5,15) seconds
+  nextTransmissionTime = millis() + 5000; // First transmission in 5 seconds
   
   delay(500);
 }
@@ -416,9 +414,9 @@ void loop()
   // Check if it's time for next transmission
   if (millis() >= nextTransmissionTime) {
     
-    // Read temperature from DS18B20 sensor and pollutants from MQ9
-    PRINTLN_CSTSTR("Reading values...");
-/*
+    // Read temperature from DS18B20 sensor
+    PRINTLN_CSTSTR("Reading temperature...");
+
     // Take multiple readings for accuracy
     tempC = 0.0;
     for (int i=0; i<1; i++) {
@@ -432,7 +430,7 @@ void loop()
     }
       
     if (!sensorError) {
-      tempC = tempC / 3;
+      //tempC = tempC / 3;
       PRINT_CSTSTR("Temperature: ");
       PRINT_VALUE("%.2f", tempC);
       PRINTLN_CSTSTR("°C");
@@ -448,9 +446,9 @@ void loop()
 //        delay(100);
 //    }
 
-     // tempC = sensor_getValue();
+     //tempC = sensor_getValue();
     // tempC = 24.21;  // Test value when sensor disconnected
-*/
+
 
 #if defined WITH_APPKEY && not defined LORAWAN
       app_key_offset = sizeof(my_appKey);
@@ -460,11 +458,12 @@ void loop()
 
     tempC = sensor_getValue();
       if (tempC == -999.0) {
-      //  PRINT_CSTSTR("ERROR - Sending custom value\n");
+        PRINT_CSTSTR("ERROR - Sending custom value\n");
         tempC = random_value();
       }
 
-    // Read all gas sensor data
+    // ADD: Read all gas sensor data
+    PRINTLN_CSTSTR("Reading gas sensors...");
     int gasCO = gas_sensor_getValue();
     int gasLPG = gas_sensor_getLPG();            
     int gasMethane = gas_sensor_getMethane();    
@@ -475,7 +474,8 @@ void loop()
     // Create payload with target size from current configuration
     uint8_t r_size;
     char payloadStr[100];
-    // createPaddedPayload(payloadStr, tempC, testParams[currentParamIndex].payloadSize);
+    
+    // UPDATE: Use overloaded function with gas data
     createPaddedPayload(payloadStr, tempC, gasCO, gasLPG, gasMethane, gasPropane, gasHydrogen, gasSmoke, testParams[currentParamIndex].payloadSize);
 
     r_size = testParams[currentParamIndex].payloadSize;  // Use the target size directly
@@ -502,7 +502,7 @@ void loop()
     PRINTLN;
     
     // Check channel before transmission
-    LT.CarrierSense();
+//    LT.CarrierSense();
 /*    
     uint8_t len = strlen(payloadStr);
     
@@ -631,7 +631,7 @@ void loop()
     PRINT_VALUE("%d", idlePeriodInMin * 20);
     PRINTLN_CSTSTR(" s");
     PRINTLN;
-
+*/
     PRINTLN;
     PRINT_CSTSTR("Will send next value at\n");
     // can use a random part also to avoid collision
@@ -639,25 +639,6 @@ void loop()
     //+(unsigned long)random(15,60)*1000;
     PRINT_VALUE("%ld", nextTransmissionTime);
     PRINTLN;    
-*/
-    PRINTLN;
-    PRINT_CSTSTR("Will send next value at\n");
-    // SCENARIO 1: Add 1-3 second randomization to avoid collision
-    uint32_t baseInterval = ((idlePeriodInSec==0)?(unsigned long)idlePeriodInMin*60*1000:(unsigned long)idlePeriodInSec*1000);
-    // Generate random delay between 1000-3000 milliseconds (1.000-3.000 seconds)
-    // uint32_t randomDelay = 1000 + random(0, 2001);  // 1000 + [0-2000] = 1000-3000ms
-    uint32_t randomDelay = random(0, 3001);  // 0-3000ms
-
-    nextTransmissionTime = millis() + baseInterval + randomDelay;
-
-    PRINT_CSTSTR("Base interval: ");
-    PRINT_VALUE("%d", idlePeriodInSec);
-    PRINT_CSTSTR("s + Random: ");
-    PRINT_VALUE("%.3f", randomDelay/1000.0);
-    PRINTLN_CSTSTR("s");
-    PRINT_VALUE("%ld", nextTransmissionTime);
-    PRINTLN;
-
   }
   
   delay(100);

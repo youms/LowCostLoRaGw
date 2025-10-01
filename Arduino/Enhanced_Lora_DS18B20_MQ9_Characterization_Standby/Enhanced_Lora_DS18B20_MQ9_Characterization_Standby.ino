@@ -78,9 +78,9 @@ SX128XLT LT;
 #define FLUSHOUTPUT               Serial.flush()
 
 // Configuration from Arduino_LoRa_SX12XX_DS18B20 sketch
-//#define WITH_EEPROM
-//#define WITH_APPKEY
-#define WITH_ACK
+// #define WITH_EEPROM
+// #define WITH_APPKEY
+// #define WITH_ACK
 #define WITH_RCVW
 #define INVERTIQ_ON_RX
 

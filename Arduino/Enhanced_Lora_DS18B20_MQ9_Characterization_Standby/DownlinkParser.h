@@ -365,7 +365,7 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
           
           // Validate configuration index (0-15)
           extern const uint8_t NUM_TEST_PARAMS;
-          if (cmdValue >= 0 && cmdValue < NUM_TEST_PARAMS - 3) {
+          if (cmdValue >= 0 && cmdValue < NUM_TEST_PARAMS) {
             currentParamIndex = cmdValue;
             
             PRINT_CSTSTR("Set configuration to index ");
@@ -380,7 +380,7 @@ bool parseDownlinkCommand(uint8_t* message, uint8_t RXPacketL, uint8_t& currentP
             PRINT_CSTSTR("Invalid configuration index: ");
             PRINT_VALUE("%ld", cmdValue);
             PRINT_CSTSTR(" (valid range: 0-");
-            PRINT_VALUE("%d", NUM_TEST_PARAMS-3);
+            PRINT_VALUE("%d", NUM_TEST_PARAMS-1);
             PRINTLN_CSTSTR(")");
           }
 

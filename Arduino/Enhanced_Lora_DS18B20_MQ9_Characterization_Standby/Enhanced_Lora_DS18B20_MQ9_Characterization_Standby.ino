@@ -2,19 +2,20 @@
  *  Enhanced DS18B20 Temperature Sensor with LoRa transmission
  *  Downlink-Controlled Network Characterization Version
  *  Using SX12XX library for LoRa communication
+ *  NOW WITH MQ9 GAS SENSOR SUPPORT
  *  
- *  Supports 16 network parameter configurations triggered by downlink commands:
- *  Command format: /@C<index># where index is 0-15
+ *  Supports 15 network parameter configurations triggered by downlink commands:
+ *  Command format: /@C<index># where index is 0-14
  *  
  *  Hardware connections:
  *  - DS18B20 data pin -> Arduino Pin 3
+ *  - MQ9 sensor -> Arduino Pin A0
  *  - LoRa module as defined in Lora_DS18B20_SX12XXX.h
  */
 
 //#include <OneWire.h>
 //#include <DallasTemperature.h>
 #include <SPI.h>
-
 
 #define USE_SPI_TRANSACTION          //this is the standard behaviour of library, use SPI Transaction switching
 
@@ -32,7 +33,6 @@ SX126XLT LT;
 #ifdef SX127X
 #include <SX127XLT.h>
 #include <SX127X_RadioSettings.h>
-//#include "Lora_DS18B20_SX12XXX_Enhanced.h" 
 SX127XLT LT;                                          
 #endif
 
@@ -43,7 +43,7 @@ SX128XLT LT;
 #endif
 
 #include "my_temp_sensor_code.h"
-#include "my_gas_sensor_code.h"
+#include "my_gas_sensor_code.h"  // Gas sensor functionality
 
 ///////////////////////////////////////////////////////////////////
 // COMMENT THIS LINE IF YOU WANT TO DYNAMICALLY SET THE NODE'S ADDR 
@@ -77,30 +77,35 @@ SX128XLT LT;
 #define PRINTLN_HEX(fmt,param)    Serial.println(param,HEX)
 #define FLUSHOUTPUT               Serial.flush()
 
-
-
 // Configuration from Arduino_LoRa_SX12XX_DS18B20 sketch
-#define WITH_EEPROM
+//#define WITH_EEPROM
 //#define WITH_APPKEY
 #define WITH_ACK
 #define WITH_RCVW
 #define INVERTIQ_ON_RX
 
-//#define ONE_WIRE_BUS 3                          // DS18B20 data pin (avoiding conflicts with LoRa pins)
 #define MY_FREQUENCY 868000000
 
-
-
-// DS18B20 Temperature Sensor setup
-// OneWire oneWire(ONE_WIRE_BUS);
-// DallasTemperature sensors(&oneWire);
+// Standby configuration index - MUST match the gateway script (SF12-BW125-T20)
+const uint8_t STANDBY_CONFIG_INDEX = 8;
+// Duration in minutes for the monitoring phase - MUST match Python script
+const unsigned long MONITORING_DURATION_MINUTES = 5;
 
 // Global variables
-uint8_t currentParamIndex = 2;                      // Current parameter set index (0-15)
-uint8_t node_addr = 30;                              // Node address
+uint8_t currentParamIndex = STANDBY_CONFIG_INDEX;   // Start in standby mode
+uint8_t node_addr = 20;                             // Node address
 unsigned int idlePeriodInMin = 0;                   // Transmission interval
-unsigned int idlePeriodInSec = 8;                  // Needed to obtain 15s sending difference, downlink wait times cause some delays
+unsigned int idlePeriodInSec = 13;                  // Needed to obtain 15s sending difference, downlink wait times cause some delays
 unsigned long nextTransmissionTime = 0;             // Next transmission time
+unsigned long monitoringStartTime = 0;              // Timestamp when monitoring starts
+
+// State machine for device behavior
+enum DeviceState {
+  STANDBY_MODE,   // SF12
+  MONITORING_MODE
+};
+
+volatile DeviceState deviceState = STANDBY_MODE;
 
 #ifdef WITH_APPKEY
 ///////////////////////////////////////////////////////////////////
@@ -109,11 +114,6 @@ unsigned long nextTransmissionTime = 0;             // Next transmission time
 uint8_t my_appKey[4]={5, 6, 7, 8};
 ///////////////////////////////////////////////////////////////////
 #endif
-
-///////////////////////////////////////////////////////////////////
-// DO NOT CHANGE HERE
-//unsigned char DevAddr[4] = { 0x00, 0x00, 0x00, node_addr };
-///////////////////////////////////////////////////////////////////
 
 // Message buffer
 uint8_t message[100];
@@ -137,7 +137,6 @@ struct sx1272config {
 sx1272config my_sx1272config;
 #endif
 
-//#include "Lora_DS18B20_SX12XXX_Enhanced.h"  // Include header with pin definitions
 #include "NetworkParams.h"          // Include network parameter definitions
 #include "DownlinkParser.h"         // Include downlink command parsing
 
@@ -167,18 +166,16 @@ void createPaddedPayload(char* dest, float temperature, uint8_t targetSize) {
   // Start with basic temperature format: \!TC/temp
   int baseSize = sprintf(dest, "\\!TC/%s", float_str);
   
-  // If we need more bytes, pad with spaces
+  // If we need more bytes, pad with null bytes
   if (targetSize > baseSize) {
     for (int i = baseSize; i < targetSize; i++) {
-      // dest[i] = ' ';  // Fill with spaces
       dest[i] = 0x00;  // Fill with null bytes
     }
-    // dest[targetSize] = '\0';  // Null terminate
   }
 }
 
-// New overloaded function for combined sensor data
-void createPaddedPayload(char* dest, float temperature, float gasCO, int gasLPG, 
+// Overloaded function for combined sensor data
+void createPaddedPayload(char* dest, float temperature, int gasCO, int gasLPG, 
                         int gasMethane, int gasPropane, int gasHydrogen, int gasSmoke, 
                         uint8_t targetSize) {
   char float_str[10];
@@ -189,11 +186,11 @@ void createPaddedPayload(char* dest, float temperature, float gasCO, int gasLPG,
   if (targetSize >= 50) {
     // T50 & T80: Full gas suite (fits comfortably in 50+ bytes)
     baseSize = sprintf(dest, "\\!TC/%s/CO/%d/LPG/%d/CH4/%d/C3H8/%d/H2/%d/SMK/%d", 
-                      float_str, (int)gasCO, gasLPG, gasMethane, gasPropane, gasHydrogen, gasSmoke);
+                      float_str, gasCO, gasLPG, gasMethane, gasPropane, gasHydrogen, gasSmoke);
   } else if (targetSize >= 20) {
     // T20: Critical gases only (CO, LPG, CH4 - most important for safety)
     baseSize = sprintf(dest, "\\!TC/%s/CO/%d/LPG/%d/CH4/%d", 
-                      float_str, (int)gasCO, gasLPG, gasMethane);
+                      float_str, gasCO, gasLPG, gasMethane);
   } else {
     // Fallback: Temperature only (shouldn't happen with your 20/50/80 sizes)
     baseSize = sprintf(dest, "\\!TC/%s", float_str);
@@ -216,17 +213,10 @@ void setup()
   Serial.begin(38400);
   // while (!Serial);
   
-  PRINTLN_CSTSTR("Enhanced DS18B20 LoRa Downlink-Controlled Network Characterization");
-  PRINTLN_CSTSTR("Supports 16 configurations via downlink commands /@C<index>#");
+  PRINTLN_CSTSTR("Enhanced DS18B20 + MQ9 LoRa Downlink-Controlled Network Characterization with Standby Support");
+  PRINTLN_CSTSTR("Supports 15 configurations via downlink commands /@C<index>#");
   
   SPI.begin();
-
-  // Initialize DS18B20 sensor
-  // sensors.begin();
-  
-  // PRINT_CSTSTR("Found ");
-  // PRINT_VALUE("%d", ds18b20.getDeviceCount());
-  // PRINTLN_CSTSTR(" temperature sensor(s)");
 
   // Initialize LoRa device
 #ifdef SX126X
@@ -258,37 +248,7 @@ void setup()
   LT.printOperatingSettings();                                 
   PRINTLN;
 
-  /*
 #ifdef WITH_EEPROM
-  EEPROM.get(0, my_sx1272config);
-  
-  if (my_sx1272config.flag1==0x12 && my_sx1272config.flag2==0x34) {
-    PRINT_CSTSTR("Get back previous sx1272 config\n");
-    LT.setTXSeqNo(my_sx1272config.seq);
-    node_addr = my_sx1272config.addr;
-    currentParamIndex = my_sx1272config.current_config_index;
-    
-    PRINT_CSTSTR("Using packet sequence number of ");
-    PRINT_VALUE("%d", LT.readTXSeqNo());
-    PRINTLN;
-    PRINT_CSTSTR("Restored node address: ");
-    PRINT_VALUE("%d", node_addr);
-    PRINTLN;
-    PRINT_CSTSTR("Restored configuration index: ");
-    PRINT_VALUE("%d", currentParamIndex);
-    PRINTLN;
-  }
-  else {
-    my_sx1272config.flag1=0x12;
-    my_sx1272config.flag2=0x34;
-    my_sx1272config.seq=LT.readTXSeqNo();
-    my_sx1272config.addr=node_addr;
-    my_sx1272config.current_config_index=currentParamIndex;
-  }
-#endif */
-
-#ifdef WITH_EEPROM
-
   // get config from EEPROM
   EEPROM.get(0, my_sx1272config);
 
@@ -320,7 +280,6 @@ void setup()
 #else
     // get back the node_addr
     if (my_sx1272config.addr!=0 && my_sx1272config.overwrite==1) {
-      
         PRINT_CSTSTR("Used stored address\n");
         node_addr=my_sx1272config.addr;        
     }
@@ -329,7 +288,6 @@ void setup()
 
     // get back the idle period
     if (my_sx1272config.idle_period!=0 && my_sx1272config.overwrite==1) {
-      
         PRINT_CSTSTR("Used stored idle period\n");
         idlePeriodInSec=my_sx1272config.idle_period;        
     }
@@ -343,7 +301,6 @@ void setup()
     }
     else
         PRINT_CSTSTR("Stored configuration index is null\n");
-                 
 #endif  
           
     PRINT_CSTSTR("Using node addr of ");
@@ -366,6 +323,7 @@ void setup()
     my_sx1272config.seq=LT.readTXSeqNo(); 
     my_sx1272config.addr=node_addr;
     my_sx1272config.idle_period=idlePeriodInSec;
+    my_sx1272config.current_config_index=currentParamIndex;
     my_sx1272config.overwrite=0;
   }
 #endif
@@ -388,19 +346,20 @@ void setup()
   PRINT_CSTSTR("SX128X - ");
 #endif
 
-//  PRINTLN_CSTSTR("Downlink-Controlled Network Characterization Ready");
-  PRINTLN_CSTSTR("SCENARIO 1: Carrier Sense + Randomization Mode Ready");
-  PRINT_CSTSTR("Base interval: ");
-  PRINT_VALUE("%d", idlePeriodInSec);
-  PRINTLN_CSTSTR(" seconds + 1-3s random");
+  PRINTLN_CSTSTR("DS18B20 + MQ9 Downlink-Controlled Network Characterization with Standby Support Ready");
 
   sensor_Init();
-  gas_sensor_Init();
+  gas_sensor_Init();  // Initialize MQ9 gas sensor
   
-  // Initialize with current parameter set
-  // currentParamIndex = 9;
+  // Initialize with standby configuration
+  currentParamIndex = STANDBY_CONFIG_INDEX;
   updateLoRaParams(testParams[currentParamIndex]);
-  nextTransmissionTime = millis() + random(5000, 15000); // First transmission in 5 seconds
+  deviceState = STANDBY_MODE;
+  
+  PRINT_CSTSTR("Starting in STANDBY MODE with config: ");
+  Serial.println(testParams[currentParamIndex].name);
+  
+  nextTransmissionTime = millis() + 5000; // First transmission in 5 seconds
   
   delay(500);
 }
@@ -409,63 +368,47 @@ void loop()
 {
   long startSend;
   long endSend;
-  uint8_t app_key_offset=0;
+  uint8_t app_key_offset = 0;
   float tempC;
   bool sensorError = false;
+
+  // Check if the monitoring period has elapsed and return to standby
+  if (deviceState == MONITORING_MODE && 
+      millis() - monitoringStartTime >= (unsigned long)MONITORING_DURATION_MINUTES * 60 * 1000) {
+    PRINTLN_CSTSTR("Monitoring period finished. Returning to STANDBY MODE.");
+    deviceState = STANDBY_MODE;
+    currentParamIndex = STANDBY_CONFIG_INDEX;
+    updateLoRaParams(testParams[currentParamIndex]);
+    
+    PRINT_CSTSTR("Returned to STANDBY config: ");
+    Serial.println(testParams[currentParamIndex].name);
+  }
 
   // Check if it's time for next transmission
   if (millis() >= nextTransmissionTime) {
     
     // Read temperature from DS18B20 sensor
     PRINTLN_CSTSTR("Reading temperature...");
-/*
-    // Take multiple readings for accuracy
-    tempC = 0.0;
-    for (int i=0; i<1; i++) {
-      float reading = sensor_getValue();
-      if (reading == DEVICE_DISCONNECTED_C) {
-        sensorError = true;
-        break;
-      }
-      tempC += reading;
-      delay(100);
-    }
-      
-    if (!sensorError) {
-      tempC = tempC / 3;
-      PRINT_CSTSTR("Temperature: ");
-      PRINT_VALUE("%.2f", tempC);
-      PRINTLN_CSTSTR("°C");
-    } else {
-      PRINTLN_CSTSTR("Sensor error - using test value");
-      tempC = 24.21;  // Test value when sensor disconnected
-    }
-
-
-
-//    for (int i=0; i<5; i++) {
-//        tempC += sensor_getValue();  
-//        delay(100);
-//    }
-
-     // tempC = sensor_getValue();
-    // tempC = 24.21;  // Test value when sensor disconnected
-*/
 
 #if defined WITH_APPKEY && not defined LORAWAN
-      app_key_offset = sizeof(my_appKey);
-      // set the app key in the payload
-      memcpy(message,my_appKey,app_key_offset);
+    app_key_offset = sizeof(my_appKey);
+    // set the app key in the payload
+    memcpy(message,my_appKey,app_key_offset);
 #endif
 
     tempC = sensor_getValue();
-      if (tempC == -999.0) {
-        PRINT_CSTSTR("ERROR - Sending custom value\n");
-        tempC = random_value();
-      }
+    if (tempC == -999.0) {
+      PRINT_CSTSTR("ERROR - Sending custom value\n");
+      tempC = random_value();
+    }
+
+    PRINT_CSTSTR("Temperature: ");
+    PRINT_VALUE("%.2f", tempC);
+    PRINTLN_CSTSTR("°C");
 
     // Read all gas sensor data
-    float gasCO = gas_sensor_getValue();
+    PRINTLN_CSTSTR("Reading gas sensors...");
+    int gasCO = gas_sensor_getValue();
     int gasLPG = gas_sensor_getLPG();            
     int gasMethane = gas_sensor_getMethane();    
     int gasPropane = gas_sensor_getPropane();    
@@ -475,7 +418,8 @@ void loop()
     // Create payload with target size from current configuration
     uint8_t r_size;
     char payloadStr[100];
-    // createPaddedPayload(payloadStr, tempC, testParams[currentParamIndex].payloadSize);
+    
+    // Use overloaded function with gas data
     createPaddedPayload(payloadStr, tempC, gasCO, gasLPG, gasMethane, gasPropane, gasHydrogen, gasSmoke, testParams[currentParamIndex].payloadSize);
 
     r_size = testParams[currentParamIndex].payloadSize;  // Use the target size directly
@@ -483,9 +427,14 @@ void loop()
     // Copy padded message to transmission buffer
     memcpy(message, payloadStr, r_size);
     
- //   while (!configChanged){
-//      PRINT_CSTSTR("DISCOVERY PHASE: SF12, BW125, CR5\n");
- //   }    
+    PRINT_CSTSTR("State: ");
+    if (deviceState == STANDBY_MODE) {
+      PRINT_CSTSTR("STANDBY");
+    } else {
+      PRINT_CSTSTR("MONITORING");
+    }
+    PRINTLN;
+    
     PRINT_CSTSTR("Config: ");
     Serial.println(testParams[currentParamIndex].name);
     PRINTLN;
@@ -500,41 +449,29 @@ void loop()
 
     LT.printASCIIPacket(message, r_size);
     PRINTLN;
-    
-    // Check channel before transmission
-    LT.CarrierSense();
-/*    
-    uint8_t len = strlen(payloadStr);
-    
-    PRINT_CSTSTR("Sending: ");
-    PRINT_STR("%s", payloadStr);
-    PRINT_CSTSTR(" (");
-    PRINT_VALUE("%d", len);
-    PRINTLN_CSTSTR(" bytes)");
-    PRINTLN;
-*/
+
     uint8_t p_type=PKT_TYPE_DATA;
 
 #ifdef WITH_APPKEY
-      // indicate that we have an appkey
-      p_type = p_type | PKT_FLAG_DATA_WAPPKEY;
+    // indicate that we have an appkey
+    p_type = p_type | PKT_FLAG_DATA_WAPPKEY;
 #endif 
     
     startSend = millis();
 
 #ifdef WITH_ACK
-      p_type=PKT_TYPE_DATA | PKT_FLAG_ACK_REQ;
-      // PRINTLN_CSTSTR("Will request an ACK");         
+    p_type=PKT_TYPE_DATA | PKT_FLAG_ACK_REQ;
+    // PRINTLN_CSTSTR("Will request an ACK");         
 #endif
 
     // Send the packet, return packet length sent if OK, otherwise 0 if transmit error
 #ifdef LORAWAN
-      //will return packet length sent if OK, otherwise 0 if transmit error
-      //we use raw format for LoRaWAN
-      if (LT.transmit(message, r_size, 10000, MAX_DBM, WAIT_TX)) 
+    //will return packet length sent if OK, otherwise 0 if transmit error
+    //we use raw format for LoRaWAN
+    if (LT.transmit(message, r_size, 10000, MAX_DBM, WAIT_TX)) 
 #else
-      //will return packet length sent if OK, otherwise 0 if transmit error
-      if (LT.transmitAddressed(message, r_size, p_type, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))  
+    //will return packet length sent if OK, otherwise 0 if transmit error
+    if (LT.transmitAddressed(message, r_size, p_type, DEFAULT_DEST_ADDR, node_addr, 10000, MAX_DBM, WAIT_TX))  
 #endif
     {
       endSend = millis();
@@ -547,7 +484,6 @@ void loop()
       PRINT_VALUE("%ld", endSend - startSend);
       PRINTLN_CSTSTR("ms");
 
-// #ifdef WITH_ACK
       if (LT.readAckStatus()) {
         PRINT_CSTSTR("Received ACK from gateway ");
         PRINT_VALUE("%d", LT.readRXSource());
@@ -556,11 +492,10 @@ void loop()
         PRINT_VALUE("%d", LT.readPacketSNRinACK());
         PRINTLN; PRINTLN;          
       }
-     else {
+      else {
         PRINTLN;
         PRINTLN_CSTSTR("No ACK received");
       }
-//#endif
 
 #ifdef WITH_EEPROM
       // save packet number for next packet in case of reboot     
@@ -591,22 +526,28 @@ void loop()
         bool configChanged = parseDownlinkCommand(message, RXPacketL, currentParamIndex, node_addr);
         
         if (configChanged) {
-          // Update LoRa parameters if configuration was changed
-          updateLoRaParams(testParams[currentParamIndex]);
-          PRINT_CSTSTR("Transmission Settings Changed, Wait 30s");
-          PRINTLN;
-          delay(30000);
-/*          
-#ifdef WITH_EEPROM
-          // Save new configuration index to EEPROM
-          my_sx1272config.current_config_index = currentParamIndex;
-          my_sx1272config.addr = node_addr;
+            // Update LoRa parameters if configuration was changed
+            updateLoRaParams(testParams[currentParamIndex]);
+            PRINT_CSTSTR("New config: ");
+            Serial.println(testParams[currentParamIndex].name);
+            
+            PRINT_CSTSTR("Transmission Settings Changed, Wait 40s");
+            PRINTLN;
+            delay(40000);
 
-          // Save packet number for next packet in case of reboot     
-          my_sx1272config.seq = LT.readTXSeqNo();
-          EEPROM.put(0, my_sx1272config);
-          EEPROM.put(0, my_sx1272config);
-#endif */
+            // ONLY enter monitoring mode if config changed
+            if (currentParamIndex != STANDBY_CONFIG_INDEX) {
+                deviceState = MONITORING_MODE;
+                monitoringStartTime = millis();  // Start the timer NOW
+                PRINT_CSTSTR("Entering MONITORING MODE for ");
+                PRINT_VALUE("%d", MONITORING_DURATION_MINUTES);
+                PRINTLN_CSTSTR(" minutes.");
+            } else {
+                deviceState = STANDBY_MODE;
+                PRINTLN_CSTSTR("Received STANDBY command, entering STANDBY MODE.");
+            }
+            
+
         }
       }
 #endif
@@ -623,40 +564,14 @@ void loop()
       PRINT_HEX("%d", IRQStatus);
       LT.printIrqStatus(); 
     }
-/*    
-    // Set next transmission time
-    nextTransmissionTime = millis() + (unsigned long)idlePeriodInMin * 10 * 1000;
-    
-    PRINT_CSTSTR("Next transmission in ");
-    PRINT_VALUE("%d", idlePeriodInMin * 20);
-    PRINTLN_CSTSTR(" s");
-    PRINTLN;
+
 
     PRINTLN;
     PRINT_CSTSTR("Will send next value at\n");
-    // can use a random part also to avoid collision
+    // Set next transmission time based on current configuration
     nextTransmissionTime=millis()+((idlePeriodInSec==0)?(unsigned long)idlePeriodInMin*60*1000:(unsigned long)idlePeriodInSec*1000);
-    //+(unsigned long)random(15,60)*1000;
     PRINT_VALUE("%ld", nextTransmissionTime);
     PRINTLN;    
-*/
-    PRINTLN;
-    PRINT_CSTSTR("Will send next value at\n");
-    // SCENARIO 1: Add 1-3 second randomization to avoid collision
-    uint32_t baseInterval = ((idlePeriodInSec==0)?(unsigned long)idlePeriodInMin*60*1000:(unsigned long)idlePeriodInSec*1000);
-    // Generate random delay between 1000-3000 milliseconds (1.000-3.000 seconds)
-    uint32_t randomDelay = 1000 + random(0, 2001);  // 1000 + [0-2000] = 1000-3000ms
-
-    nextTransmissionTime = millis() + baseInterval + randomDelay;
-
-    PRINT_CSTSTR("Base interval: ");
-    PRINT_VALUE("%d", idlePeriodInSec);
-    PRINT_CSTSTR("s + Random: ");
-    PRINT_VALUE("%.3f", randomDelay/1000.0);
-    PRINTLN_CSTSTR("s");
-    PRINT_VALUE("%ld", nextTransmissionTime);
-    PRINTLN;
-
   }
   
   delay(100);

@@ -27,8 +27,8 @@ float Ro_gas = 10;  // Sensor resistance in clean air (will be calibrated)
 // MQ-9 GAS SENSOR INITIALIZATION
 void gas_sensor_Init() {
   Serial.println(F("=== MQ-9 Gas Sensor Initialization ==="));
-  Serial.println(F("30s: Warming up sensor..."));
-  delay(30000);
+  Serial.println(F("60s: Warming up sensor..."));
+  delay(60000);
   
   // Calibrate sensor in clean air
   Serial.print(F("Calibrating sensor in clean air..."));
@@ -38,7 +38,7 @@ void gas_sensor_Init() {
   Serial.println(F(" KOhm"));
   
   // Check if Ro_gas is in realistic range for MQ-9 (based on datasheet: 2-30 KΩ typical)
-  if (Ro_gas < 20.0 || Ro_gas > 50.0) {
+  if (Ro_gas < 5.0) {
     Serial.print(F("ERROR: Unrealistic Ro value ("));
     Serial.print(Ro_gas);
     Serial.println(F(" KOhm) - Sensor likely disconnected"));
@@ -53,7 +53,7 @@ void gas_sensor_Init() {
 
 // Fallback values based on clean environment readings
 struct GasFallbackValues {
-  float co = 0.0;      // CO: 0 ppm
+  int co = 0;          // CO: 0 ppm
   int lpg = 7;         // LPG: 7 ppm  
   int methane = 3;     // CH4: 3 ppm
   int propane = 1;     // C3H8: 1 ppm
@@ -66,8 +66,9 @@ GasFallbackValues fallback_values;
 ///////////////////////////////////////////////////////////////////
 // CHANGE HERE THE WAY YOU READ A VALUE FROM YOUR SPECIFIC SENSOR
 // PRIMARY SENSOR READING - RETURNS CO CONCENTRATION (main gas of interest)
-float gas_sensor_getValue() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) {
+/*
+int gas_sensor_getValue() {
+  if (Ro_gas <= 0) {
     Serial.println(F("MQ-9 sensor disconnected/invalid - using fallback CO value"));
     return fallback_values.co;  // Return fallback CO value
   }
@@ -81,12 +82,22 @@ float gas_sensor_getValue() {
   Serial.print(co_ppm);
   Serial.println(F(" ppm"));
   
-  return (float)co_ppm;
+  return (int)co_ppm;
+}
+
+*/
+
+// GET CO CONCENTRATION
+int gas_sensor_getValue() {
+  if (Ro_gas <= 0) return fallback_values.co;
+  
+  float rs_ro_ratio = MQRead(MQ9_PIN) / Ro_gas;
+  return MQGetGasPercentage(rs_ro_ratio, GAS_CO);
 }
 
 // GET LPG CONCENTRATION
 int gas_sensor_getLPG() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) return fallback_values.lpg;
+  if (Ro_gas <= 0) return fallback_values.lpg;
   
   float rs_ro_ratio = MQRead(MQ9_PIN) / Ro_gas;
   return MQGetGasPercentage(rs_ro_ratio, GAS_LPG);
@@ -94,7 +105,7 @@ int gas_sensor_getLPG() {
 
 // GET METHANE CONCENTRATION  
 int gas_sensor_getMethane() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) return fallback_values.methane;
+  if (Ro_gas <= 0) return fallback_values.methane;
   
   float rs_ro_ratio = MQRead(MQ9_PIN) / Ro_gas;
   return MQGetGasPercentage(rs_ro_ratio, GAS_METHANE);
@@ -102,7 +113,7 @@ int gas_sensor_getMethane() {
 
 // GET PROPANE CONCENTRATION
 int gas_sensor_getPropane() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) return fallback_values.propane;
+  if (Ro_gas <= 0) return fallback_values.propane;
   
   float rs_ro_ratio = MQRead(MQ9_PIN) / Ro_gas;
   return MQGetGasPercentage(rs_ro_ratio, GAS_PROPANE);
@@ -110,7 +121,7 @@ int gas_sensor_getPropane() {
 
 // GET HYDROGEN CONCENTRATION
 int gas_sensor_getHydrogen() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) return fallback_values.hydrogen;
+  if (Ro_gas <= 0) return fallback_values.hydrogen;
   
   float rs_ro_ratio = MQRead(MQ9_PIN) / Ro_gas;
   return MQGetGasPercentage(rs_ro_ratio, GAS_HYDROGEN);
@@ -118,7 +129,7 @@ int gas_sensor_getHydrogen() {
 
 // GET SMOKE CONCENTRATION
 int gas_sensor_getSmoke() {
-  if (Ro_gas <= 0 || Ro_gas < 20.0 || Ro_gas > 50.0) return fallback_values.smoke;
+  if (Ro_gas <= 0) return fallback_values.smoke;
   
   float rs_ro_ratio = MQRead(MQ9_PIN) / Ro_gas;
   return MQGetGasPercentage(rs_ro_ratio, GAS_SMOKE);

@@ -5,7 +5,7 @@
 
 // MQ-9 Gas Sensor functions
 void gas_sensor_Init();
-float gas_sensor_getValue();  // Returns CO concentration in ppm
+int gas_sensor_getValue();  // Returns CO concentration in ppm
 int gas_sensor_getLPG();      // Returns LPG concentration in ppm  
 int gas_sensor_getMethane();  // Returns CH4 concentration in ppm
 int gas_sensor_getPropane();  // Returns C3H8 concentration in ppm

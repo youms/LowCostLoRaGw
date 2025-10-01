@@ -60,11 +60,10 @@ const NetworkTestParams testParams[] = {
   {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 50, "MAX-SF12-BW125-T50"},
   {LORA_SF12, BW_125_VAL, CR_4_5_VAL, 80, "MAX-SF12-BW125-T80"},
   
-  // EXTRA configurations for comprehensive testing
-  {LORA_SF8, BW_125_VAL, CR_4_5_VAL, 30, "EXTRA-SF8-BW125-T30"},
-  {LORA_SF10, BW_125_VAL, CR_4_5_VAL, 40, "EXTRA-SF10-BW125-T40"},
-  {LORA_SF11, BW_125_VAL, CR_4_5_VAL, 60, "EXTRA-SF11-BW125-T60"},
-  {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 100, "EXTRA-SF7-BW500-T100"}
+  // New BW500-T50 variants for comprehensive testing
+  {LORA_SF7, BW_500_VAL, CR_4_5_VAL, 50, "MIN-SF7-BW500-T50"},
+  {LORA_SF9, BW_500_VAL, CR_4_5_VAL, 50, "MEAN-SF9-BW500-T50"},
+  {LORA_SF12, BW_500_VAL, CR_4_5_VAL, 50, "MAX-SF12-BW500-T50"}
 };
 
 const uint8_t NUM_TEST_PARAMS = sizeof(testParams) / sizeof(testParams[0]);

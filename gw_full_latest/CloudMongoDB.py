@@ -152,7 +152,7 @@ def main(ldata, pdata, rdata, tdata, gwid):
 	str_json_data += '\"SNR\":'+str(SNR)+','
 	
 	# and here the RSSI
-	str_json_data += '\"RSSI\":'+str(RSSI)+','
+	str_json_data += '\"RSSI\":'+str(RSSI)
 	
 	#start from the first nomenclature
 	iteration = 2
@@ -162,22 +162,22 @@ def main(ldata, pdata, rdata, tdata, gwid):
 		
 		if isnumber:
 			# no nomenclature, use DEF
-			str_json_data += '\"DEF\":'+data_array[iteration]
+			str_json_data += ',\"DEF\":'+data_array[iteration]
 		else:
-			str_json_data += '\"DEF\":\"'+data_array[iteration]+'\"'
+			str_json_data += ',\"DEF\":\"'+data_array[iteration]+'\"'
 	else:
+		# Only process pairs - skip unpaired last element
 		while iteration < len(data_array)-1:
 			
 			isnumber = re.match(num_format,data_array[iteration+1])
+			
+			# Add comma before each field
+			str_json_data += ','
 			
 			if isnumber:
 				str_json_data += '\"'+data_array[iteration]+'\":'+data_array[iteration+1]
 			else:
 				str_json_data += '\"'+data_array[iteration]+'\":\"'+data_array[iteration+1]+'\"'	
-		
-			#not last iteration, add "," at the end
-			if iteration != len(data_array)-2:
-				str_json_data += ','
 				
 			iteration += 2
 		
@@ -207,4 +207,4 @@ def main(ldata, pdata, rdata, tdata, gwid):
 	print("MongoDB: saving done")	
 	
 if __name__ == "__main__":
-	main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])	
+	main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])

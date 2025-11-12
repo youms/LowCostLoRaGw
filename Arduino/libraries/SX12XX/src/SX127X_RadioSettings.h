@@ -20,7 +20,7 @@
 #else
 #define NSS 10                                  //select pin on LoRa device
 #endif
-#define NRESET 4                                //reset pin on LoRa device
+#define NRESET 9                                //reset pin on LoRa device
 //we do not connect DIO0 as we use polling method
 //if you have an RFM95 then
 //you can use our ProMini LoRa PCB for RFM95 where DIO0 can be connected to D2

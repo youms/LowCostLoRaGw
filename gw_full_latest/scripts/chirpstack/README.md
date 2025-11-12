@@ -76,7 +76,7 @@ To disable ChirpStack, go into `scripts/chirpstack` folder and run
 
 	> ./disable_chirpstack.sh
 	
-Disabling ChirpStack stops the ChirpStack services and also set in `/opt/ttn-gateway/packet_forwarder/lora_pkt_fwd/global_conf.json` "server_address" with "router.eu.thethings.network" to use the TTN Network Server.
+Disabling ChirpStack stops the ChirpStack services and also set in `/opt/ttn-gateway/packet_forwarder/lora_pkt_fwd/global_conf.json` "server_address" with "eu1.cloud.thethings.network" to use the TTN Network Server.
 
 The SD card image has already both the SX1301-based concentrator configuration files and ChirpStack installed, so if you are using our SD card image, you can just use the web admin interface and the `Configure for LoRaWAN` functionality to simply start/stop ChirpStack which is equivalent to:
 

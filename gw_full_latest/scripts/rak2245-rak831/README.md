@@ -93,7 +93,7 @@ Once the concentrator has started, take your favorite Arduino LoRaWAN device usi
 	uploading with python CloudTTN.py
 	python CloudTTN.py "QCQfBCaAAAABJD5j3dEjAVB+a0O+pzs=" "256,64,637804324,0,10,10,-27" "125,5,12,868100" "2019-05-22T15:09:59.625+02:00" "0000B827EBDA09D7"
 	CloudTTN: gw id: B827EBFFFFDA09D7
-	CloudTTN: Opening UDP socket to router.eu.thethings.network (52.169.76.203) port 1700...
+	CloudTTN: Opening UDP socket to eu1.cloud.thethings.network (52.169.76.203) port 1700...
 	CloudTTN: Try to forward packet: ^A<CC>:^@<B8>'<EB><FF><FF><DA>     <D7>{"rxpk": [{"stat": 1, "chan": 0, "datr": "SF12BW125", "tmst": 1558537799, "codr": "4/5", "lsnr": 10, "freq": 868.1, "data": "QCQfBCaAAAABJD5j3dEjAVB+a0O+pzs=", "size": 10, "modu": "LORA", "rfch": 0, "time": "2019-05-22T15:09:59.625+02:00", "rssi": -27}]}
 	CloudTTN: Received packet: {"rxpk": [{"stat": 1, "chan": 0, "datr": "SF12BW125", "tmst": 1558537799, "codr": "4/5", "lsnr": 10, "freq": 868.1, "data": "QCQfBCaAAAABJD5j3dEjAVB+a0O+pzs=", "size": 10, "modu": "LORA", "rfch": 0, "time": "2019-05-22T15:09:59.625+02:00", "rssi": -27}]}
 	--> LoRaWAN encrypted cloud end

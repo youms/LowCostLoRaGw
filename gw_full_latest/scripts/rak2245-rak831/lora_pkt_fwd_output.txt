@@ -24,7 +24,7 @@ INFO: Lora std channel> radio 1, IF -200000 Hz, 250000 Hz bw, SF 7
 INFO: FSK channel> radio 1, IF 300000 Hz, 125000 Hz bw, 50000 bps datarate
 INFO: global_conf.json does contain a JSON object named gateway_conf, parsing gateway parameters
 INFO: gateway MAC address is configured to 0000000000000000
-INFO: server hostname or IP address is configured to "router.eu.thethings.network"
+INFO: server hostname or IP address is configured to "eu1.cloud.thethings.network"
 INFO: upstream port is configured to "1700"
 INFO: downstream port is configured to "1700"
 INFO: downstream keep-alive interval is configured to 10 seconds

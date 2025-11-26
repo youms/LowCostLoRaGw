@@ -84,7 +84,7 @@ static osjob_t sendjob;
 
 // Schedule TX every this many seconds (might become longer due to duty
 // cycle limitations).
-const unsigned TX_INTERVAL = 10;
+const unsigned TX_INTERVAL = 30;
 
 // Pin mapping
 // Adapted for Feather M0 per p.10 of [feather]
@@ -152,6 +152,10 @@ void onEvent (ev_t ev) {
               Serial.println(LMIC.dataLen);
               Serial.println(F(" bytes of payload"));
             }
+            // FORCE RESET CONFIRMED UPLINK COUNTER TO PREVENT RETRANSMISSIONS
+            // LMIC.txCnt = 0;
+            // Force SF7 after transmission completes
+            //LMIC.datarate = DR_SF7;
             // Schedule next transmission
             os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
             break;
@@ -181,6 +185,8 @@ void onEvent (ev_t ev) {
         */
         case EV_TXSTART:
             Serial.println(F("EV_TXSTART"));
+            // Force SF7 right before transmission
+            //LMIC.datarate = DR_SF7;
             break;
         case EV_TXCANCELED:
             Serial.println(F("EV_TXCANCELED"));
@@ -336,6 +342,13 @@ void loop() {
     }
     else {
       digitalWrite(13, LOW);
+    }
+
+    // CRITICAL: Aggressively force SF7 (DR_SF7) 
+    // The LMIC library keeps trying to change DR during retransmissions
+    // Force it back to DR_SF7 for single-channel gateway operation
+    if (LMIC.datarate != DR_SF7) {
+        LMIC.datarate = DR_SF7;
     }
 
     os_runloop_once();

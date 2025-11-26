@@ -203,6 +203,12 @@ void onEvent (ev_t ev) {
         case EV_LINK_ALIVE:
             Serial.println(F("EV_LINK_ALIVE"));
             break;
+        case EV_JOIN_TXCOMPLETE:
+            Serial.println(F("EV_JOIN_TXCOMPLETE: no JoinAccept"));
+            // Force channel back to 0 for single-channel gateway
+            LMIC.txChnl = 0;
+            Serial.println(F("-> Forced channel back to 0 (868.1 MHz)"));
+            break;
          default:
             Serial.println(F("Unknown event"));
             break;
@@ -232,7 +238,7 @@ void setup() {
 
     // Let LMIC compensate for +/- 10% clock error
     // we take 10% error to better handle downlink messages
-    LMIC_setClockError(MAX_CLOCK_ERROR * 10 / 100);
+    LMIC_setClockError(MAX_CLOCK_ERROR * 20 / 100);
 
     #if defined(CFG_eu433)
     //experimental only
@@ -301,6 +307,10 @@ void setup() {
     }    
     Serial.println(F("✓ Configured for single channel: 868.1 MHz"));
 
+    // CRITICAL FIX: Force channelShuffleMap to only have channel 0
+    // This prevents the channel shuffle algorithm from selecting other channels
+    LMIC.channelShuffleMap = 0x0001;  // Only bit 0 set = only channel 0
+
 
     // Set data rate (SF) and transmit power for uplink
     LMIC_setDrTxpow(dr, 14);
@@ -318,5 +328,20 @@ void loop() {
     else {
       digitalWrite(13, LOW);
     }
+
+    // CRITICAL: Continuously force single-channel operation
+    // The LMIC library keeps trying to shuffle channels, so we force it back
+    if (LMIC.txChnl != 0) {
+        LMIC.txChnl = 0;
+        LMIC.channelShuffleMap = 0x0001;  // Only channel 0
+    }
+
+    // CRITICAL: Aggressively force SF7 (DR_SF7) 
+    // The LMIC library keeps trying to change DR during retransmissions
+    // Force it back to DR_SF7 for single-channel gateway operation
+    if (LMIC.datarate != DR_SF7) {
+        LMIC.datarate = DR_SF7;
+    }
+
     os_runloop_once();
 }

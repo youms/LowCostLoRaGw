@@ -288,7 +288,7 @@ enum { DELAY_DNW2        =  DELAY_DNW1 +(int)DELAY_EXTDNW2 }; // in millisecs do
 enum { DELAY_DNWFILE     =  900 }; // in millisecs
 enum { MARGIN_DNW        =  20 }; // in millisecs
 
-//#define DEBUG_DOWNLINK_TIMING
+#define DEBUG_DOWNLINK_TIMING
 //#define KEEP_DOWNLINK_BACKUP_FILE
 //#define KEEP_DOWNLINK_SENT_FILE
 
@@ -1255,6 +1255,23 @@ void loop(void)
 #ifdef DEBUG_DOWNLINK_TIMING						
 						PRINT_CSTSTR("^$downlink send: ");
 						PRINTLN_VALUE("%lu", millis());						
+#endif
+
+#ifdef DEBUG_DOWNLINK_TIMING
+						PRINT_CSTSTR("^$About to transmit - checking IQ state\n");
+						PRINT_CSTSTR("^$SF: ");
+						PRINTLN_VALUE("%d", LT.getLoRaSF());
+						PRINT_CSTSTR("^$BW: ");
+						PRINTLN_VALUE("%lu", LT.returnBandwidth());
+						PRINT_CSTSTR("^$Freq: ");  
+						PRINTLN_VALUE("%lu", LT.getFreqInt());
+						// Print register 0x33 (REG_INVERTIQ) to see actual IQ state
+#ifdef SX127X
+						PRINT_CSTSTR("^$REG_INVERTIQ: 0x");
+						PRINTLN_HEX("%02X", LT.readRegister(0x33));
+						PRINT_CSTSTR("^$REG_INVERTIQ2: 0x");
+						PRINTLN_HEX("%02X", LT.readRegister(0x19));
+#endif
 #endif
 						//LoRaWAN downlink so no header in communication lib								
 						TXPacketL=LT.transmit((uint8_t*)downlink_payload, downlink_size, 10000, MAX_DBM, WAIT_TX);    

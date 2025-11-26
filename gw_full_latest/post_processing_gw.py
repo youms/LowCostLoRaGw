@@ -271,6 +271,7 @@ if _gw_downlink < 0:
 _post_downlink_file = "downlink/downlink-post.txt"
 _post_downlink_queued_file = "downlink/downlink-post-queued.txt"
 _gw_downlink_file = "downlink/downlink.txt"
+_downlink_local_log = "downlink/downlink_local.log"
 
 pending_downlink_requests = []
 
@@ -323,6 +324,15 @@ def check_downlink_for_device(src_addr):
 						f.write(json.dumps(downlink_json_line)+'\n')
 					
 					f.close()
+
+					# Log the downlink request
+					try:
+						with open(_downlink_local_log, "a") as log_f:
+							timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+							log_f.write("[%s] %s\n" % (timestamp, json.dumps(downlink_json_line)))
+						print "post downlink: logged to", _downlink_local_log
+					except Exception as e:
+						print "post downlink: failed to write to log file:", str(e)
 					
 					pending_downlink_requests.remove(downlink_request)
 					
@@ -1145,7 +1155,11 @@ while True:
 					#print [hex(x) for x in lorapkt]
 					
 					datalen=datalen-LORAWAN_HEADER_SIZE
-					
+
+					# Fix for frames without FPort (e.g., ACK-only uplinks)
+					if datalen < 0:
+						datalen = 0
+
 					src = lorapkt[4]*256*256*256
 					src += lorapkt[3]*256*256
 					src += lorapkt[2]*256

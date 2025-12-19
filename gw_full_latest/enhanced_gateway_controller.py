@@ -711,7 +711,7 @@ class GatewayController:
         
         return True
 
-    def run_characterization_sequence(self, max_cycles=None):
+    def run_characterization_sequence(self, max_cycles=None, test_indexes=None):
         """Run the complete characterization sequence with corrected index management"""
         
         # Step 1: Wait for initial sync
@@ -721,19 +721,28 @@ class GatewayController:
         
         # Step 2: Run characterization cycles
         self.log_message("=== STARTING CHARACTERIZATION SEQUENCE ===")
+        
+        # Filter configurations if test_indexes is provided
+        if test_indexes is not None:
+            test_configs = [CONFIGURATIONS[i] for i in test_indexes if 0 <= i < len(CONFIGURATIONS)]
+            self.log_message("FILTERED TEST MODE: Testing only indexes {}".format(test_indexes))
+        else:
+            test_configs = CONFIGURATIONS
+        
         self.log_message("Configuration cycle order:")
-        for i, config in enumerate(CONFIGURATIONS):
-            self.log_message("  {}: {}".format(i, config['name']))
+        for config in test_configs:
+            self.log_message("  {}: {}".format(config['index'], config['name']))
         
         cycle_count = 0
+        config_position = 0
         
         while self.running:
-            config = CONFIGURATIONS[self.current_config_index]
+            config = test_configs[config_position]
             is_first_cycle = (cycle_count == 0)
             
             self.log_message("")
             self.log_message("+" + "="*60 + "+")
-            self.log_message("| CYCLE {}: {} (index {}) |".format(cycle_count + 1, config['name'], self.current_config_index).ljust(62) + "|")
+            self.log_message("| CYCLE {}: {} (index {}) |".format(cycle_count + 1, config['name'], config['index']).ljust(62) + "|")
             self.log_message("+" + "="*60 + "+")
             
             # Run the cycle
@@ -743,15 +752,10 @@ class GatewayController:
                 cycle_count += 1
                 self.log_message("Cycle {} completed successfully".format(cycle_count))
                 
-                # FIXED: Advance index AFTER successful cycle completion
-                #if not is_first_cycle:
-                old_index = self.current_config_index
-                self.current_config_index = (self.current_config_index + 1) % len(CONFIGURATIONS)
-                self.log_message("ADVANCED: index {} -> {} for next cycle".format(old_index, self.current_config_index))
-                # else:
-                    # After first cycle, advance from 0 to 1
-                #    self.current_config_index = 1
-                #    self.log_message("FIRST CYCLE COMPLETE: advanced from index 0 -> 1 for next cycle")
+                # FIXED: Advance position in test_configs list
+                old_position = config_position
+                config_position = (config_position + 1) % len(test_configs)
+                self.log_message("ADVANCED: position {} -> {} for next cycle".format(old_position, config_position))
                 
                 if max_cycles and cycle_count >= max_cycles:
                     self.log_message("Maximum cycles ({}) reached, stopping".format(max_cycles))
@@ -788,8 +792,19 @@ def main():
                        help='Override gateway downlink check interval (default: auto-detect from gateway_conf.json)')
     parser.add_argument('--start-index', type=int, default=0,
                    help='Starting configuration index (0-11) for resuming after power loss')
+    parser.add_argument('--test-indexes', type=str,
+                   help='Comma-separated list of indexes to test (e.g., "2,6,10")')
     
     args = parser.parse_args()
+    
+    # Parse test indexes if provided
+    test_indexes = None
+    if args.test_indexes:
+        try:
+            test_indexes = [int(x.strip()) for x in args.test_indexes.split(',')]
+        except ValueError:
+            print("ERROR: --test-indexes must be comma-separated integers (e.g., '2,6,10')")
+            sys.exit(1)
     
     # Create controller with basic settings
     controller = GatewayController(
@@ -856,10 +871,12 @@ def main():
     #    , controller.problematic_index)
     # )
     controller.log_message("Max cycles: {}".format(args.max_cycles if args.max_cycles else "unlimited"))
+    if test_indexes:
+        controller.log_message("Test indexes: {}".format(test_indexes))
     controller.log_message("=" * 50)
     
     try:
-        controller.run_characterization_sequence(max_cycles=args.max_cycles)
+        controller.run_characterization_sequence(max_cycles=args.max_cycles, test_indexes=test_indexes)
     except KeyboardInterrupt:
         controller.log_message("Interrupted by user")
     finally:

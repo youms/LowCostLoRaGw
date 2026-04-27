@@ -1,0 +1,27 @@
+// TTN Payload Decoder — MCCI_ttn_Raw_DHT22_MQ9
+//
+// Payload layout (8 bytes, positional):
+//   [0-1]  Temperature  int16  ×100   → °C
+//   [2-3]  Humidity     uint16 ×100   → %
+//   [4-5]  MQ9 ADC      uint16        → raw 0–1023
+//   [6-7]  Rs/R0 ratio  uint16 ×1000  → dimensionless
+
+function Decoder(bytes, port) {
+  var temp = (bytes[0] << 8) | bytes[1];
+  if (temp > 32767) temp -= 65536; // int16 sign correction
+
+  var hum   = ((bytes[2] << 8) | bytes[3]) / 100.0;
+  var adc   = (bytes[4] << 8) | bytes[5];
+  var ratio = ((bytes[6] << 8) | bytes[7]) / 1000.0;
+
+  // Rs recomputed from ADC (RL = 5 kΩ) — result in kΩ
+  var rs_kohm = adc > 0 ? 5.0 * (1023 - adc) / adc : 0;
+
+  return {
+    temperature  : temp / 100.0,
+    humidity     : hum,
+    mq9_adc      : adc,
+    mq9_rs_kohm  : parseFloat(rs_kohm.toFixed(3)),
+    mq9_ratio    : ratio
+  };
+}

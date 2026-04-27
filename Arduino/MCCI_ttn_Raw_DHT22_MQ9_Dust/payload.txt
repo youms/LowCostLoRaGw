@@ -1,0 +1,44 @@
+// TTN Payload Decoder — MCCI_ttn_Raw_DHT22_MQ9_Dust
+// Sensors: DHT22 + MQ9 + GP2Y1010AU0F
+//
+// Payload layout (10 bytes, positional):
+//   [0-1]  Temperature  int16  ×100   → °C
+//   [2-3]  Humidity     uint16 ×100   → %
+//   [4-5]  MQ9 ADC      uint16        → raw 0–1023
+//   [6-7]  Rs/R0 ratio  uint16 ×1000  → dimensionless
+//   [8-9]  Dust ADC     uint16        → raw 0–1023
+//
+// MQ9 Rs recomputed from ADC (RL = 5 kΩ) — result in kΩ
+// Dust density formula (Sharp GP2Y1010AU0F datasheet):
+//   voltage    = ADC × (5.0 / 1023)
+//   dust µg/m³ = max(0,  170 × voltage − 100)
+//
+// Pin note: MQ9 on A0 | Dust on A1 | Dust LED on D5
+
+function Decoder(bytes, port) {
+  var temp = (bytes[0] << 8) | bytes[1];
+  if (temp > 32767) temp -= 65536; // int16 sign correction
+
+  var hum       = ((bytes[2] << 8) | bytes[3]) / 100.0;
+  var mq9_adc   = (bytes[4] << 8) | bytes[5];
+  var ratio     = ((bytes[6] << 8) | bytes[7]) / 1000.0;
+  var dust_adc  = (bytes[8] << 8) | bytes[9];
+
+  // MQ9 Rs in kΩ (RL = 5 kΩ)
+  var mq9_rs = mq9_adc > 0 ? 5.0 * (1023 - mq9_adc) / mq9_adc : 0;
+
+  // Dust
+  var dust_v = dust_adc * (5.0 / 1023.0);
+  var dust_d = Math.max(0, 170.0 * dust_v - 100.0);
+
+  return {
+    temperature  : temp / 100.0,
+    humidity     : hum,
+    mq9_adc      : mq9_adc,
+    mq9_rs_kohm  : parseFloat(mq9_rs.toFixed(3)),
+    mq9_ratio    : ratio,
+    dust_adc     : dust_adc,
+    dust_voltage : parseFloat(dust_v.toFixed(3)),
+    dust_ugm3    : parseFloat(dust_d.toFixed(1))
+  };
+}

@@ -8,6 +8,9 @@
 
 #define ARDUINO_LMIC_PROJECT_CONFIG_H_SUPPRESS_WARNING
 
+#define SCG_RX2_DR  DR_SF9
+#include <single_channel_lmic.h>
+
 // ABP session credentials
 static const PROGMEM u1_t NWKSKEY[16] = {
     0x55, 0xF7, 0x14, 0xA6, 0x58, 0x11, 0xDE, 0xAF,
@@ -161,23 +164,19 @@ void setup() {
 # error Region not supported
 #endif
 
-    // Lock onto 868.1 MHz only
-    for (int i = 1; i <= 9; i++) LMIC_disableChannel(i);
-
-    // Prevent MAC DlChannelReq from silently redirecting downlinks
+    // Prevent MAC DlChannelReq from silently redirecting RX1 to another frequency
 #if !defined(DISABLE_MCMD_DlChannelReq)
     for (uint8_t i = 0; i < 9; i++) LMIC.channelDlFreq[i] = 0;
 #endif
 
-    LMIC_setLinkCheckMode(0);
-    LMIC_setAdrMode(0);
-    LMIC.dn2Dr = DR_SF9;
-    LMIC_setDrTxpow(DR_SF7, 14);
+    // Single-channel enforcement: disables ch 1-8, locks shuffle map,
+    // disables ADR and link check, asserts DR_SF7 / 14 dBm, sets RX2.
+    SCG_init();
 
-    Serial.println(F("Single channel: 868.1 MHz"));
     do_send(&sendjob);
 }
 
 void loop() {
+    SCG_enforce();
     os_runloop_once();
 }

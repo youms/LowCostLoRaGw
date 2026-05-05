@@ -61,6 +61,14 @@ lorawan_port=1700
 
 _downlink_file = "/home/pi/lora_gateway/downlink/downlink.txt"
 
+#////////////////////////////////////////////////////////////
+# CHANGE HERE THE VARIOUS PATHS FOR YOUR LOG FILES
+#////////////////////////////////////////////////////////////
+LOG_PATH = "/home/pi/Dropbox/LoRa-test/"
+_downlinklog_filename = LOG_PATH + "downlink_lorawan_" + str(_gwid) + ".log"
+# END
+#////////////////////////////////////////////////////////////
+
 PROTOCOL_VERSION = 2
 
 PUSH_DATA = 0
@@ -78,7 +86,7 @@ TX_ERR_TX_FREQ = 'TX_FREQ'
 TX_ERR_TX_POWER = 'TX_POWER'
 TX_ERR_GPS_UNLOCKED = 'GPS_UNLOCKED'
 
-UDP_THREAD_CYCLE_MS = 100/1000.0
+UDP_THREAD_CYCLE_MS = 10/1000.0
 
 TX_ACK_PK = {
     'txpk_ack': {
@@ -146,7 +154,7 @@ class lorawan_pull:
         	time.sleep(50/1000.0)       
 
     def pull_data(self):
-        self._log('lorawan_pull: PULL_DATA')
+        # self._log('lorawan_pull: PULL_DATA')
         token = os.urandom(2)
         packet = bytearray([PROTOCOL_VERSION]) + token + bytearray([PULL_DATA]) + binascii.unhexlify(self.id)
         with self.udp_lock:
@@ -154,7 +162,7 @@ class lorawan_pull:
                 self.sock.sendto(packet, self.server_ip)
             except Exception as ex:
                 self._log('lorawan_pull: Failed to pull downlink packets from server: {}', ex)
-        self._log('lorawan_pull: PULL_DATA done')
+        # self._log('lorawan_pull: PULL_DATA done')
 
     def _ack_pull_rsp(self, token, error):
         TX_ACK_PK["txpk_ack"]["error"] = error
@@ -186,7 +194,7 @@ class lorawan_pull:
         #self._log(
         #    'lorawan_pull: Write {} to {} {}', json.dumps(both), _downlink_file, datetime.datetime.now().isoformat())
         self._log(
-            'lorawan_pull: Write {} to {} {}', pk, _downlink_file, datetime.datetime.now().isoformat())             
+            'lorawan_pull: Write {} to {}', pk, _downlink_file)             
                
     def _udp_thread(self):
 
@@ -196,9 +204,11 @@ class lorawan_pull:
                 _token = data[1:3]
                 _type = ord(data[3])
                 if _type == PUSH_ACK:
-                    self._log("lorawan_pull: PUSH ACK")
+                    # self._log("lorawan_pull: PUSH ACK")
+                    pass
                 elif _type == PULL_ACK:
-                    self._log("lorawan_pull: PULL ACK")
+                    # self._log("lorawan_pull: PULL ACK")
+                    pass
                 elif _type == PULL_RESP:
                     self._log("lorawan_pull: PULL RESP")
                     self.dwnb += 1
@@ -232,7 +242,21 @@ class lorawan_pull:
         self._log('UDP thread stopped')
 
     def _log(self, message, *args):
-        print('{}'.format(str(message).format(*args)))
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
+        log_str = "[%s] lorawan_pull: %s" % (timestamp, str(message).format(*args))
+
+        # Print to console
+        print log_str
+        sys.stdout.flush()
+
+        # Also write to log file if the directory exists
+        if os.path.exists(LOG_PATH):
+            try:
+                with open(_downlinklog_filename, "a") as f:
+                    f.write(log_str + "\n")
+            except:
+                pass
 
 def main(gwid):     
 		    

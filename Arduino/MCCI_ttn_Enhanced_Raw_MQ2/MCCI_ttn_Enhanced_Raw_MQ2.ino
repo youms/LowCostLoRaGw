@@ -4,6 +4,24 @@
 
 #define ARDUINO_LMIC_PROJECT_CONFIG_H_SUPPRESS_WARNING
 
+///////////////////////////////////////////////////////////////////
+// OPTIONAL FEATURES — uncomment to enable
+//#define WITH_EEPROM
+//#define FORCE_DEFAULT_VALUE
+//#define LOW_POWER
+//#define SHOW_LOW_POWER_CYCLE
+///////////////////////////////////////////////////////////////////
+
+#ifdef WITH_EEPROM
+#include <EEPROM.h>
+#endif
+#ifdef LOW_POWER
+#if defined(ARDUINO_AVR_PRO) || defined(ARDUINO_AVR_NANO) || defined(ARDUINO_AVR_UNO) || \
+    defined(ARDUINO_AVR_MINI) || defined(ARDUINO_AVR_MEGA2560) || defined(__AVR_ATmega32U4__)
+#include "LowPower.h"
+#endif
+#endif
+
 // MQ2 Gas Sensor Setup
 #define MQ2_PIN A0          // Arduino's pin connected to AO pin of the MQ2 sensor
 #define WARMUP_DELAY 20000  // 20 seconds for MQ2 sensor to warm up
@@ -40,7 +58,7 @@ static uint8_t mydata[10];
 static osjob_t sendjob;
 
 // Schedule TX every this many seconds
-const unsigned TX_INTERVAL = 60; // Increased to 60s for more detailed analysis
+unsigned TX_INTERVAL = 60; // Increased to 60s for more detailed analysis
 
 // Pin mapping for Dragino LoRa Shield v1.4
 const lmic_pinmap lmic_pins = {
@@ -113,6 +131,67 @@ String getGasAlert(float lpg, float methane, float co, float alcohol) {
     return alerts;
 }
 
+#ifdef WITH_EEPROM
+struct lmic_eeprom_t {
+    uint8_t  flag1;
+    uint8_t  flag2;
+    uint32_t seqnoUp;
+    unsigned tx_interval;
+    uint8_t  overwrite;
+};
+static lmic_eeprom_t my_eeprom;
+#endif
+
+#ifdef LOW_POWER
+void lowPower(unsigned long ms) {
+    unsigned long remaining = ms;
+    Serial.flush();
+    delay(5);
+#if defined(ARDUINO_AVR_PRO) || defined(ARDUINO_AVR_NANO) || defined(ARDUINO_AVR_UNO) || \
+    defined(ARDUINO_AVR_MINI) || defined(ARDUINO_AVR_MEGA2560) || defined(__AVR_ATmega32U4__)
+    while (remaining > 0) {
+        if (remaining > 8158) {
+            LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+            remaining -= 8158;
+#ifdef SHOW_LOW_POWER_CYCLE
+            Serial.print(F("8"));
+#endif
+        } else if (remaining > 4158) {
+            LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
+            remaining -= 4158;
+#ifdef SHOW_LOW_POWER_CYCLE
+            Serial.print(F("4"));
+#endif
+        } else if (remaining > 2158) {
+            LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
+            remaining -= 2158;
+#ifdef SHOW_LOW_POWER_CYCLE
+            Serial.print(F("2"));
+#endif
+        } else if (remaining > 1158) {
+            LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+            remaining -= 1158;
+#ifdef SHOW_LOW_POWER_CYCLE
+            Serial.print(F("1"));
+#endif
+        } else {
+            delay(remaining);
+#ifdef SHOW_LOW_POWER_CYCLE
+            Serial.print(F("D"));
+#endif
+            remaining = 0;
+        }
+#ifdef SHOW_LOW_POWER_CYCLE
+        Serial.flush();
+        delay(1);
+#endif
+    }
+#else
+    delay(ms);
+#endif
+}
+#endif
+
 void printHex2(unsigned v) {
     v &= 0xff;
     if (v < 16)
@@ -159,7 +238,19 @@ void onEvent (ev_t ev) {
               Serial.println(F(" bytes of payload"));
             }
             // Schedule next transmission
+#ifdef WITH_EEPROM
+            my_eeprom.seqnoUp = LMIC.seqnoUp;
+            EEPROM.put(0, my_eeprom);
+            Serial.print(F("EEPROM saved seqnoUp=")); Serial.println(LMIC.seqnoUp);
+#endif
+#ifdef LOW_POWER
+            Serial.print(F("Sleeping ")); Serial.print(TX_INTERVAL); Serial.println(F("s"));
+            Serial.flush();
+            lowPower((unsigned long)TX_INTERVAL * 1000);
+            os_setCallback(&sendjob, do_send);
+#else
             os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
+#endif
             break;
         case EV_LOST_TSYNC:
             Serial.println(F("EV_LOST_TSYNC"));
@@ -306,6 +397,35 @@ void setup() {
     #else
     LMIC_setSession (0x13, DEVADDR, NWKSKEY, APPSKEY);
     #endif
+
+#ifdef WITH_EEPROM
+    EEPROM.get(0, my_eeprom);
+    if (my_eeprom.flag1 == 0x12 && my_eeprom.flag2 == 0x35) {
+        Serial.println(F("EEPROM: restoring config"));
+        Serial.print(F("  seqnoUp : ")); Serial.println(my_eeprom.seqnoUp);
+#ifdef FORCE_DEFAULT_VALUE
+        Serial.println(F("  FORCE_DEFAULT_VALUE: resetting"));
+        my_eeprom.seqnoUp    = 0;
+        my_eeprom.tx_interval = TX_INTERVAL;
+        my_eeprom.overwrite  = 0;
+        EEPROM.put(0, my_eeprom);
+#else
+        LMIC.seqnoUp = my_eeprom.seqnoUp;
+        if (my_eeprom.overwrite == 1 && my_eeprom.tx_interval != 0) {
+            TX_INTERVAL = my_eeprom.tx_interval;
+            Serial.print(F("  TX_INTERVAL: ")); Serial.print(TX_INTERVAL); Serial.println(F("s"));
+        }
+#endif
+    } else {
+        my_eeprom.flag1       = 0x12;
+        my_eeprom.flag2       = 0x35;
+        my_eeprom.seqnoUp     = 0;
+        my_eeprom.tx_interval = TX_INTERVAL;
+        my_eeprom.overwrite   = 0;
+        EEPROM.put(0, my_eeprom);
+        Serial.println(F("EEPROM: initialized"));
+    }
+#endif
 
     #if defined(CFG_eu868)
     LMIC_setupChannel(0, 868100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);

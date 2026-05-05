@@ -1,0 +1,24 @@
+[Unit]
+Description=LoRa Gateway Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/lora_gateway
+# Kill any lingering processes before starting (from cmd.sh logic)
+ExecStartPre=-/usr/bin/pkill -f "lora_gateway|post_processing_gw|log_gw|start_gw|util_pkt_logger|lora_pkt_fwd"
+# Delay start by 60 seconds to ensure hardware/system readiness
+ExecStartPre=/bin/sleep 60
+# Ensure gateway ID is configured if missing
+ExecStartPre=/bin/sh -c "[ -f /home/pi/lora_gateway/gateway_id.txt ] || /home/pi/lora_gateway/scripts/create_gwid.sh"
+# Main command with pipes
+ExecStart=/bin/sh -c "/home/pi/lora_gateway/lora_gateway --raw --mode 11 --bw 125 --cr 5 --sf 7 --d2sf 9 | /usr/bin/python post_processing_gw.py | /usr/bin/python log_gw.py"
+Restart=always
+RestartSec=5
+User=root
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

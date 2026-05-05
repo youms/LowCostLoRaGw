@@ -1,0 +1,19 @@
+[Unit]
+Description=LoRa LBS Daemon Service
+After=network-online.target lora-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/lora_gateway
+# Kill any existing lbs_daemon processes before starting
+ExecStartPre=-/usr/bin/pkill -f "lbs_daemon.py"
+ExecStart=/usr/bin/python /home/pi/lora_gateway/lbs_daemon.py
+Restart=always
+RestartSec=5
+User=pi
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

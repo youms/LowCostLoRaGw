@@ -151,13 +151,6 @@ void onEvent (ev_t ev) {
             Serial.println(""); 
 
             #ifdef OTAA_SCG
-            //needed for OTAA with SCG
-            // Ignore the channels from the Join Accept
-            for (int i=1; i<9; i++) { // For EU; for US use i<71
-              if(i != 0) {
-                LMIC_disableChannel(i);
-              }
-            }            
             LMIC_setDrTxpow(dr, 14);
             #endif
                         
@@ -339,8 +332,8 @@ void loop() {
     // CRITICAL: Aggressively force SF7 (DR_SF7) 
     // The LMIC library keeps trying to change DR during retransmissions
     // Force it back to DR_SF7 for single-channel gateway operation
-    if (LMIC.datarate != DR_SF7) {
-        LMIC.datarate = DR_SF7;
+    if (LMIC.datarate != dr) {
+        LMIC.datarate = dr;
     }
 
     os_runloop_once();

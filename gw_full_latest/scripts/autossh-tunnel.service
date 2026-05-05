@@ -1,0 +1,16 @@
+[Unit]
+Description=AutoSSH Tunnel to VPS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+# This adds your 15-second delay after the network is up
+ExecStartPre=/bin/sleep 15
+# Use the full path for autossh (/usr/bin/autossh)
+ExecStart=/usr/bin/autossh -N -T -o "ExitOnForwardFailure=yes" -o "ServerAliveInterval=30" -o "ServerAliveCountMax=3" -R 2222:localhost:22 -R 8081:localhost:80 loragw@80.241.212.19
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

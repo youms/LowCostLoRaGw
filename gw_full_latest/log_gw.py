@@ -53,7 +53,8 @@ _gwaddr = json_array["gateway_conf"]["gateway_ID"]
 #log files
 #_parselog_filename = _folder_path+"post-processing_"+str(_gwaddr)+".log"
 #_prefix_filename = _folder_path+"post-processing_"+str(_gwaddr)+"_"
-_parselog_filename = _folder_path+"post-processing.log"
+_execution_time = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+_parselog_filename = _folder_path+"post-processing_" + _execution_time + ".log"
 _prefix_filename = _folder_path+"post-processing_"
 
 

@@ -1,0 +1,19 @@
+[Unit]
+Description=LoRa Downlink Service
+After=network-online.target lora-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/lora_gateway/scripts/lorawan_stats/
+# Kill any existing downlink processes before starting
+ExecStartPre=-/usr/bin/pkill -f "downlink_lorawan.py"
+ExecStart=/usr/bin/python /home/pi/lora_gateway/scripts/lorawan_stats/downlink_lorawan.py
+Restart=always
+RestartSec=5
+User=pi
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target
